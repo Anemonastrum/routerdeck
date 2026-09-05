@@ -1,0 +1,329 @@
+/* RouterDeck sign-in screen. Kept separate from the dashboard styles on purpose. */
+#login.login-shell {
+  min-height: 100dvh;
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+  overflow: auto;
+  background: var(--bg);
+}
+
+#login .login-panel {
+  width: min(440px, 100%);
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  opacity: 0;
+  transform: translateY(10px) scale(.99);
+  transition: opacity .28s ease, transform .28s cubic-bezier(.2,.8,.2,1);
+}
+
+#login.login-ready .login-panel {
+  opacity: 1;
+  transform: none;
+}
+
+#login.login-leaving .login-panel {
+  opacity: 0;
+  transform: translateY(-8px) scale(.99);
+  transition-duration: .2s;
+}
+
+#login .login-brand-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+#login .login-brand-logo {
+  width: 48px;
+  height: 48px;
+  margin: 0;
+  border-radius: 13px;
+  filter: none;
+  flex: 0 0 auto;
+}
+
+#login .login-brand-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+#login .login-brand-copy strong {
+  overflow: hidden;
+  font-size: 17px;
+  line-height: 1.2;
+  letter-spacing: -.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#login .login-eyebrow {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+#login .login-heading h1 {
+  margin: 0 0 8px;
+  font-size: 30px;
+  line-height: 1.08;
+  letter-spacing: -.04em;
+}
+
+#login .login-heading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+#login .login-form {
+  margin-top: 26px;
+}
+
+#login .login-form label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+#login .login-password-wrap {
+  position: relative;
+}
+
+#login .login-password-wrap input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 44px 0 13px;
+  border-radius: 11px;
+  background: var(--panel2);
+  font-size: 14px;
+}
+
+#login .login-field-icon {
+  position: absolute;
+  top: 50%;
+  right: 13px;
+  width: 19px;
+  height: 19px;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+}
+
+#login .login-submit {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 12px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 11px;
+  transition: transform .15s ease, box-shadow .15s ease, opacity .15s ease;
+}
+
+#login .login-submit svg {
+  width: 19px;
+  height: 19px;
+}
+
+#login .login-submit:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+#login .login-submit:active:not(:disabled) {
+  transform: none;
+}
+
+#login .login-submit:disabled {
+  cursor: wait;
+  opacity: .65;
+}
+
+#login .login-error {
+  min-height: 18px;
+  margin-top: 8px;
+  font-size: 11px;
+}
+
+#login .login-links {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 16px;
+}
+
+#login .login-links a,
+#login .login-links button {
+  min-width: 0;
+  min-height: 42px;
+  padding: 8px 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  appearance: none;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel2);
+  color: var(--muted);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, color .15s ease;
+}
+
+#login .login-links a:hover,
+#login .login-links button:hover,
+#login .login-links a:focus-visible,
+#login .login-links button:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+  background: color-mix(in srgb, var(--accent) 6%, var(--panel2));
+  color: var(--text);
+  outline: none;
+}
+
+#login .login-links svg {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+}
+
+#login .login-help {
+  margin-top: 10px;
+  padding: 12px 13px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel2);
+}
+
+#login .login-help strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+}
+
+#login .login-help p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+#login .login-help code {
+  color: var(--text);
+  font-size: .95em;
+}
+
+#login .login-security-note {
+  margin-top: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 9px;
+  text-align: center;
+}
+
+#login .login-security-note .dot {
+  width: 7px;
+  height: 7px;
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+#login .login-error-shake {
+  animation: routerdeck-login-shake .32s ease;
+}
+
+@keyframes routerdeck-login-shake {
+  25% { transform: translateX(-4px); }
+  50% { transform: translateX(4px); }
+  75% { transform: translateX(-2px); }
+}
+
+@media (max-width: 520px) {
+  #login.login-shell {
+    place-items: start center;
+    padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  }
+
+  #login .login-panel {
+    width: 100%;
+    min-height: calc(100svh - 24px);
+    padding: 24px 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    border-radius: 18px;
+  }
+
+  #login .login-brand-row {
+    margin-bottom: 24px;
+  }
+
+  #login .login-heading h1 {
+    font-size: 28px;
+  }
+
+  #login .login-password-wrap input {
+    font-size: 16px;
+  }
+
+  #login .login-links a,
+  #login .login-links button {
+    min-height: 46px;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 8.5px;
+  }
+}
+
+@media (max-width: 350px) {
+  #login .login-panel {
+    padding-inline: 16px;
+  }
+
+  #login .login-brand-logo {
+    width: 44px;
+    height: 44px;
+  }
+
+  #login .login-heading h1 {
+    font-size: 25px;
+  }
+}
+
+@media (max-height: 650px) and (min-width: 521px) {
+  #login.login-shell {
+    place-items: start center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #login .login-panel,
+  #login .login-submit,
+  #login .login-links a,
+  #login .login-links button {
+    transition: none;
+  }
+
+  #login .login-error-shake {
+    animation: none;
+  }
+}

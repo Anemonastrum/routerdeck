@@ -1,0 +1,13 @@
+node_modules
+npm-debug.log*
+.git
+.github
+.env
+routerdeck-data
+*.db
+*.db-shm
+*.db-wal
+.DS_Store
+
+__pycache__
+*.pyc

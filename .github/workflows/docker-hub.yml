@@ -1,0 +1,52 @@
+name: Build and push Docker image
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+env:
+  REGISTRY: docker.io
+  IMAGE_NAME: routerdeck
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Read version from package.json
+        id: version
+        run: echo "release=v$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64, linux/arm64
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/routerdeck:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/routerdeck:${{ steps.version.outputs.release }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/routerdeck:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.title=RouterDeck
+            org.opencontainers.image.version=${{ steps.version.outputs.release }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.repositoryUrl }}

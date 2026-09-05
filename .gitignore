@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Environment & secrets
+.env
+.env.*.local
+!.env.example
+
+# Local database files (dev runs create ./routerdeck.db)
+*.db
+*.db-wal
+*.db-shm
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor cruft
+.DS_Store
+*.swp
+.idea/
+.vscode/

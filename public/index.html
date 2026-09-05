@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="color-scheme" content="dark light" />
+  <meta name="application-name" content="RouterDeck" />
+  <meta name="apple-mobile-web-app-title" content="RouterDeck" />
+  <title>RouterDeck</title>
+  <link rel="icon" type="image/png" href="/img/favicon.png" />
+  <link rel="shortcut icon" href="/img/favicon.ico" />
+  <link rel="apple-touch-icon" href="/img/apple-touch-icon.png" />
+  <link rel="stylesheet" href="/vendor/xterm/css/xterm.css" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/login.css" />
+</head>
+<body>
+  <div id="public-status" class="public-status hidden"></div>
+
+  <div id="login" class="login-shell hidden">
+    <section class="login-panel" aria-labelledby="login-title">
+      <div class="login-brand-row">
+        <img class="brand-logo login-brand-logo" src="/img/routerdeck-logo.png" alt="RouterDeck" />
+        <div class="login-brand-copy">
+          <span class="login-eyebrow">Network management</span>
+          <strong id="login-app-name">RouterDeck</strong>
+        </div>
+      </div>
+
+      <div class="login-heading">
+        <h1 id="login-title">Welcome back</h1>
+        <p>Sign in to manage your network devices, services, and uptime monitors.</p>
+      </div>
+
+      <form id="login-form" class="login-form">
+        <label for="login-password">Administrator password</label>
+        <div class="login-password-wrap">
+          <input id="login-password" type="password" autocomplete="current-password" required />
+          <svg class="login-field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16.5 10.5V6.75a4.5 4.5 0 0 0-9 0v3.75m-.75 0h10.5A2.25 2.25 0 0 1 19.5 12.75v6A2.25 2.25 0 0 1 17.25 21H6.75A2.25 2.25 0 0 1 4.5 18.75v-6a2.25 2.25 0 0 1 2.25-2.25Z"/></svg>
+        </div>
+        <button type="submit" class="primary login-submit">
+          <span class="login-submit-text">Sign in</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/></svg>
+        </button>
+        <div id="login-error" class="error login-error" role="status" aria-live="polite"></div>
+      </form>
+
+      <nav class="login-links" aria-label="RouterDeck links">
+        <a id="login-github" href="https://github.com/" target="_blank" rel="noopener noreferrer">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.75 17.25v-2.625c0-.621-.504-1.125-1.125-1.125h-5.25c-.621 0-1.125.504-1.125 1.125v2.625m9.75-7.5a6 6 0 1 1-12 0 6 6 0 0 1 12 0Z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 8.25 7.5 6.75M15 8.25l1.5-1.5"/></svg>
+          <span>GitHub</span>
+        </a>
+        <a href="/status" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125C16.5 3.504 17.004 3 17.625 3h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"/></svg>
+          <span>Status</span>
+        </a>
+        <button type="button" id="login-help-toggle" aria-expanded="false" aria-controls="login-help-panel">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.879 7.519c.445-1.231 1.632-2.019 3.121-2.019 1.886 0 3.414 1.258 3.414 2.81 0 1.107-.779 2.065-1.912 2.524-.829.336-1.502 1.01-1.502 1.904v.012M12 17.25h.008v.008H12v-.008Z"/><circle cx="12" cy="12" r="9" stroke-width="1.5"/></svg>
+          <span>Help</span>
+        </button>
+      </nav>
+
+      <div id="login-help-panel" class="login-help hidden">
+        <strong>Can’t sign in?</strong>
+        <p>Use the <code>ADMIN_PASSWORD</code> configured for this RouterDeck deployment. For startup issues, check the container logs and confirm both <code>APP_SECRET</code> and <code>ADMIN_PASSWORD</code> are set.</p>
+      </div>
+
+      <div class="login-security-note"><span class="dot"></span>Private self-hosted administrative access</div>
+    </section>
+  </div>
+
+  <div id="app" class="app hidden">
+    <aside class="sidebar">
+      <div class="logo"><img class="brand-logo sidebar-brand-logo" src="/img/routerdeck-logo.png" alt="RouterDeck" /><strong id="sidebar-app-name">RouterDeck</strong></div>
+      <nav><!-- Heroicons outline (MIT) -->
+        <button type="button" data-page="dashboard" class="nav active" aria-label="Overview" title="Overview"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.25 12 11.204 3.045a1.125 1.125 0 0 1 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h7.5"/></svg></span><span class="nav-label">Overview</span></button>
+        <button type="button" data-page="devices" class="nav" aria-label="Devices" title="Devices"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6.75 3h10.5a2.25 2.25 0 0 1 2.25 2.25v3A2.25 2.25 0 0 1 17.25 10.5H6.75A2.25 2.25 0 0 1 4.5 8.25v-3A2.25 2.25 0 0 1 6.75 3Zm0 10.5h10.5a2.25 2.25 0 0 1 2.25 2.25v3A2.25 2.25 0 0 1 17.25 21H6.75a2.25 2.25 0 0 1-2.25-2.25v-3a2.25 2.25 0 0 1 2.25-2.25ZM7.5 6.75h.008v.008H7.5V6.75Zm0 10.5h.008v.008H7.5v-.008Z"/></svg></span><span class="nav-label">Devices</span></button>
+        <button type="button" data-page="topology" class="nav" aria-label="Topology" title="Topology"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5.25 3.75h3A1.5 1.5 0 0 1 9.75 5.25v3a1.5 1.5 0 0 1-1.5 1.5h-3a1.5 1.5 0 0 1-1.5-1.5v-3a1.5 1.5 0 0 1 1.5-1.5Zm10.5 0h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3a1.5 1.5 0 0 1-1.5-1.5v-3a1.5 1.5 0 0 1 1.5-1.5Zm-5.25 10.5h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3a1.5 1.5 0 0 1-1.5-1.5v-3a1.5 1.5 0 0 1 1.5-1.5ZM9.75 6.75h3.5M7.5 9.75v2.25a3 3 0 0 0 3 3h.25m5.75-5.25V12a3 3 0 0 1-3 3H13"/></svg></span><span class="nav-label">Topology</span></button>
+        <button type="button" data-page="uptime" class="nav" aria-label="Uptime" title="Uptime"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8.288 15.038a5.25 5.25 0 0 1 7.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12 18.75h.008v.008H12v-.008Z"/></svg></span><span class="nav-label">Uptime</span></button>
+        <button type="button" data-page="settings" class="nav" aria-label="Settings" title="Settings"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0H3.75m6.75 12h9.75m-9.75 0a1.5 1.5 0 1 1-3 0m3 0H3.75m9-6h7.5m-7.5 0a1.5 1.5 0 1 1-3 0m3 0H3.75"/></svg></span><span class="nav-label">Settings</span></button>
+      </nav>
+      <div class="sidebar-bottom">
+        <button type="button" id="add-device" class="primary button-with-icon"><svg class="button-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4.5v15m7.5-7.5h-15"/></svg><span>Add</span></button>
+        <button type="button" id="logout" class="ghost">Log out</button>
+      </div>
+    </aside>
+    <main>
+      <header class="topbar">
+        <div><h1 id="page-title">Overview</h1><p id="page-subtitle">Live health across your network</p></div>
+        <div class="top-actions">
+          <div class="live-pill"><span class="dot"></span><span class="live-text">Live</span></div>
+          <button type="button" id="refresh-page" class="refresh-btn" title="Refresh current page" aria-label="Refresh current page"><span class="refresh-icon">↻</span><span class="refresh-text">Refresh</span></button>
+        </div>
+      </header>
+      <section id="content"></section>
+    </main>
+  </div>
+
+  <dialog id="device-dialog">
+    <form id="device-form">
+      <div class="dialog-head"><div><h2>Add to RouterDeck</h2><p>Add a network device or a managed network service.</p></div><button type="button" id="close-dialog" class="icon-btn" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18 18 6M6 6l12 12"/></svg></button></div>
+      <div class="grid2 add-base-fields">
+        <label class="span2">Add<select name="entryKind" id="entry-kind"><option value="device">Network device</option><option value="service">Network service</option></select></label>
+        <label>Name<input name="name" required placeholder="Living Room AP" /></label>
+        <label>IP / Hostname<input name="host" required placeholder="10.10.10.2" /></label>
+      </div>
+
+      <div id="device-entry-fields">
+        <div class="grid2">
+          <label>Device type<select name="osType" id="os-type"><option value="openwrt">OpenWrt</option><option value="mikrotik">MikroTik RouterOS</option><option value="generic">Generic uptime monitor</option><option value="ruijie">Ruijie/Reyee Cloud switch</option></select></label>
+          <label>Monitoring connection<select name="connectionMode" id="connection-mode"><option value="ssh">SSH / ubus</option></select></label>
+        </div>
+        <div id="device-brand" class="service-form-brand device-form-brand"><img src="/img/openwrt.svg" alt="OpenWrt"/><div><strong>OpenWrt</strong><span>SSH / ubus router or access point</span></div></div>
+        <div id="openwrt-role-fields" class="grid2">
+          <label class="span2">OpenWrt role<select name="openwrtRole" id="openwrt-role"><option value="client">Client</option><option value="access_point">Access point</option></select></label>
+        </div>
+        <div id="generic-role-fields" class="grid2 hidden">
+          <label class="span2">Generic device type<select name="genericRole" id="generic-role"><option value="router">Router</option><option value="access_point">Access point</option><option value="switch">Switch</option><option value="ip_camera">IP camera</option></select></label>
+        </div>
+        <div id="ssh-fields" class="grid2">
+          <label>SSH username<input name="sshUsername" value="root" /></label>
+          <label>SSH password<input name="sshPassword" type="password" /></label>
+          <label>SSH port<input name="sshPort" type="number" value="22" /></label>
+          <label>Monitor interface<input name="monitorInterface" placeholder="pppoe-main / eth0" /></label>
+        </div>
+        <div id="mikrotik-fields" class="grid2 hidden">
+          <label>MikroTik role<select name="deviceRole" id="mikrotik-role"><option value="client">Client / managed device</option><option value="host">Host / gateway</option></select></label>
+          <label>REST scheme<select name="restScheme"><option value="https">HTTPS</option><option value="http">HTTP</option></select></label>
+          <label>REST port<input name="restPort" type="number" placeholder="443" /></label>
+          <label>REST username<input name="apiUsername" /></label>
+          <label>REST password<input name="apiPassword" type="password" /></label>
+          <label class="check span2"><input name="insecureTls" type="checkbox" /> Allow self-signed TLS certificate</label>
+        </div>
+        <div id="ruijie-fields" class="grid2 hidden">
+          <label>Device serial number<input name="ruijieSerialNumber" autocomplete="off" placeholder="G1XXXXXXXXXXXX" /></label>
+          <label>Ruijie Cloud region<select name="ruijieBaseUrl"><option value="auto">Auto detect (Asia / US)</option><option value="https://cloud-as.ruijienetworks.com">Asia</option><option value="https://cloud-us.ruijienetworks.com">US</option></select></label>
+          <label class="check span2" id="ruijie-reuse-row"><input name="ruijieReuseExisting" id="ruijie-reuse-existing" type="checkbox" /> Reuse the working Ruijie Cloud account from an existing device</label>
+          <label class="ruijie-account-field">Cloud App ID<input name="ruijieAppId" autocomplete="off" /></label>
+          <label class="ruijie-account-field">Cloud App Secret<input name="ruijieAppSecret" type="password" autocomplete="new-password" /></label>
+          <label class="span2 ruijie-account-field">Cloud API token <span class="optional">optional</span><input name="ruijieApiToken" type="password" autocomplete="new-password" placeholder="Only needed by Cloud accounts that require an OpenAPI gateway token" /></label>
+          <div class="span2 form-hint">For ES/NBS and other supported Ruijie/Reyee Cloud-managed switches.</div>
+        </div>
+      </div>
+
+      <div id="service-entry-fields" class="hidden">
+        <div class="grid2">
+          <label>Service type<select name="serviceType" id="service-type"><option value="adguardhome">AdGuard Home</option><option value="homeassistant">Home Assistant</option><option value="proxmox">Proxmox VE</option><option value="synology">Synology DSM</option><option value="nginxproxymanager">Nginx Proxy Manager</option><option value="casaos">CasaOS</option></select></label>
+          <label>API scheme<select name="serviceScheme" id="service-scheme"><option value="http">HTTP</option><option value="https">HTTPS</option></select></label>
+          <label>API / web port<input name="servicePort" id="service-port" type="number" min="1" max="65535" placeholder="80" /></label>
+          <label class="check"><input name="serviceInsecureTls" type="checkbox" /> Allow self-signed TLS certificate</label>
+        </div>
+        <div id="service-brand" class="service-form-brand"><img src="/img/adguard-home.svg" alt="AdGuard Home"/><div><strong>AdGuard Home</strong><span>DNS filtering, uptime and query management</span></div></div>
+        <div id="adguard-service-fields" class="grid2">
+          <label>API username<input name="serviceApiUsername" autocomplete="username" /></label>
+          <label>API password<input name="serviceApiPassword" type="password" autocomplete="new-password" /></label>
+          <label id="service-ssh-metrics-row" class="check span2"><input id="service-ssh-metrics" name="serviceSshMetrics" type="checkbox" /> Enable host CPU/memory metrics and AdGuard service start/stop over SSH</label>
+        </div>
+        <div id="synology-service-fields" class="grid2 hidden">
+          <label>DSM username<input name="synologyUsername" autocomplete="username" placeholder="routerdeck" /></label>
+          <label>DSM password<input name="synologyPassword" type="password" autocomplete="new-password" /></label>
+          <label>DSM version<select name="synologyDsmVersion"><option value="7" selected>DSM 7</option><option value="6">DSM 6</option></select></label>
+          <label>OTP code <span class="optional">optional</span><input name="synologyOtpCode" inputmode="numeric" autocomplete="one-time-code" /></label>
+          <div class="span2 form-hint">Uses N4S4/synology-api through DSM WebAPI. HTTPS/5001 is recommended; use a dedicated DSM account with only the permissions RouterDeck needs.</div>
+        </div>
+        <div id="service-ssh-fields" class="grid2 hidden">
+          <label>SSH username<input name="serviceSshUsername" value="root" /></label>
+          <label>SSH password<input name="serviceSshPassword" type="password" /></label>
+          <label>SSH port<input name="serviceSshPort" type="number" value="22" /></label>
+        </div>
+        <div id="homeassistant-service-fields" class="grid2 hidden">
+          <label class="span2">Long-lived access token<textarea name="homeAssistantToken" rows="4" autocomplete="off" placeholder="Paste a Home Assistant long-lived access token"></textarea></label>
+          <div class="span2 form-hint">Create the token from your Home Assistant user profile. RouterDeck stores it encrypted server-side.</div>
+        </div>
+        <div id="proxmox-service-fields" class="grid2 hidden">
+          <label>API token ID<input name="proxmoxApiTokenId" autocomplete="off" placeholder="root@pam!routerdeck" /></label>
+          <label>API token secret<input name="proxmoxApiTokenSecret" type="password" autocomplete="new-password" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" /></label>
+          <div class="span2 form-hint">Recommended: create a Proxmox API token and grant it the permissions RouterDeck needs. Token credentials are stored encrypted.</div>
+          <div class="span2 form-divider"><span>or username / password</span></div>
+          <label>Username<input name="proxmoxUsername" autocomplete="username" placeholder="root@pam" /></label>
+          <label>Password<input name="proxmoxPassword" type="password" autocomplete="new-password" /></label>
+        </div>
+        <div id="nginxproxymanager-service-fields" class="grid2 hidden">
+          <label>Login email / username<input name="npmIdentity" autocomplete="username" placeholder="admin@example.com" /></label>
+          <label>Password<input name="npmPassword" type="password" autocomplete="new-password" /></label>
+          <div class="span2 form-divider"><span>or existing API token</span></div>
+          <label class="span2">Bearer token <span class="optional">optional</span><textarea name="npmToken" rows="3" autocomplete="off" placeholder="Paste a long-lived Nginx Proxy Manager token"></textarea></label>
+          <div class="span2 form-hint">Uses Nginx Proxy Manager's authenticated /api endpoints. The default admin port is 81. RouterDeck stores credentials encrypted server-side.</div>
+        </div>
+        <div id="casaos-service-fields" class="grid2 hidden">
+          <label>CasaOS username<input name="casaUsername" autocomplete="username" placeholder="casaos" /></label>
+          <label>Password<input name="casaPassword" type="password" autocomplete="new-password" /></label>
+          <div class="span2 form-divider"><span>or existing access token</span></div>
+          <label class="span2">Access token <span class="optional">optional</span><textarea name="casaAccessToken" rows="3" autocomplete="off" placeholder="Paste a CasaOS access token"></textarea></label>
+          <div class="span2 form-hint">Uses CasaOS UserService authentication and the v2 AppManagement API. The default web port is 80.</div>
+        </div>
+      </div>
+
+      <div id="device-form-error" class="error"></div>
+      <div class="dialog-actions"><button type="button" id="cancel-dialog" class="ghost">Cancel</button><button type="submit" class="primary">Save</button></div>
+    </form>
+  </dialog>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/vendor/xterm/lib/xterm.js"></script>
+  <script src="/vendor/xterm-fit/lib/addon-fit.js"></script>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

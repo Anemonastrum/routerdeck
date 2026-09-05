@@ -1,0 +1,26 @@
+{
+  "name": "routerdeck",
+  "version": "1.17.5",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22 <23"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "check": "node scripts/check.mjs"
+  },
+  "dependencies": {
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/xterm": "^5.5.0",
+    "axios": "^1.11.0",
+    "better-sqlite3": "13.0.3",
+    "cookie-parser": "^1.4.7",
+    "express": "^5.1.0",
+    "socket.io": "^4.8.1",
+    "ssh2": "^1.16.0",
+    "geoip-lite": "1.4.10",
+    "ws": "^8.18.3"
+  }
+}

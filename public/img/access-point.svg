@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Access point">
+  <defs>
+    <linearGradient id="ap-body" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f8fafc"/><stop offset="0.58" stop-color="#dbe4ee"/><stop offset="1" stop-color="#a9b5c4"/>
+    </linearGradient>
+    <linearGradient id="ap-edge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6b7788"/><stop offset="1" stop-color="#364152"/>
+    </linearGradient>
+    <radialGradient id="ap-led"><stop offset="0" stop-color="#eaffff"/><stop offset="0.35" stop-color="#5ee7ff"/><stop offset="1" stop-color="#1098c8"/></radialGradient>
+  </defs>
+  <ellipse cx="128" cy="203" rx="82" ry="17" fill="#101827" opacity=".18"/>
+  <path d="M56 83c0-17 14-31 31-31h82c17 0 31 14 31 31v83c0 20-16 36-36 36H92c-20 0-36-16-36-36V83Z" fill="url(#ap-edge)"/>
+  <path d="M63 82c0-13 11-23 24-23h82c13 0 24 10 24 23v80c0 18-14 32-32 32H95c-18 0-32-14-32-32V82Z" fill="url(#ap-body)"/>
+  <path d="M74 91c0-11 9-20 20-20h68c11 0 20 9 20 20v61c0 16-13 29-29 29h-50c-16 0-29-13-29-29V91Z" fill="#fff" opacity=".48"/>
+  <circle cx="128" cy="132" r="8" fill="url(#ap-led)" stroke="#6b7788" stroke-width="3"/>
+  <path d="M104 118c13-13 35-13 48 0M93 106c20-20 50-20 70 0" fill="none" stroke="#748397" stroke-width="6" stroke-linecap="round" opacity=".9"/>
+  <path d="M94 191h68" stroke="#758294" stroke-width="4" stroke-linecap="round" opacity=".6"/>
+</svg>
