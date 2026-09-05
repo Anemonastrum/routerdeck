@@ -13,7 +13,7 @@ import {
   deleteTelegramRecipient,
 } from '../db/index.js';
 import { createConfigurationBackup, restoreConfigurationBackup } from '../configs/backup.js';
-import { sendTelegram } from '../etc/telegram.js';
+import { sendTelegram, startTelegramBot } from '../etc/telegram.js';
 
 export function createSettingsRouter() {
   const router = Router();
@@ -26,7 +26,11 @@ export function createSettingsRouter() {
   router.get('/telegram-settings', (_req, res) => {
     res.json({ ...getTelegramSettings(), recipients: getTelegramRecipients() });
   });
-  router.patch('/telegram-settings', (req, res) => res.json(updateTelegramSettings(req.body || {})));
+  router.patch('/telegram-settings', (req, res) => {
+    const saved = updateTelegramSettings(req.body || {});
+    startTelegramBot(); // re-register command menu + poll with the (possibly new) token
+    res.json(saved);
+  });
 
   router.post('/telegram/recipients', (req, res) => {
     try { res.status(201).json(createTelegramRecipient(req.body || {})); }

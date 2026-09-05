@@ -10,7 +10,7 @@
 // never exposed through the API. Notifications are fully disabled until the
 // user enables them in Settings -> Telegram notifications.
 
-import { getTelegramBotToken, getTelegramSettings, getTelegramRecipients, latestUptimeAll, latestServiceUptimeAll } from '../db/index.js';
+import { getTelegramBotToken, getTelegramSettings, getTelegramRecipients, latestUptimeAll, latestServiceUptimeAll, latestMetric, listDevices, listServices } from '../db/index.js';
 
 const lastStates = new Map();  // `${kind}:${id}` -> Boolean(ok)
 const downSince = new Map();   // `${kind}:${id}` -> ts when the DOWN transition happened
@@ -116,5 +116,135 @@ export async function maybeNotify(kind, id, display, result = {}) {
     } else {
       console.error(`[telegram] chat ${chatId} ${kind} "${display}" ${ok ? 'UP' : 'DOWN'} — alert failed: ${sent.error}`);
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Interactive bot commands (long polling): /devices /services /online
+// /offline /clients /help. The command menu is registered with setMyCommands
+// so these appear as a menu in every chat. The bot answers any chat that
+// writes to it while notifications are enabled.
+// ---------------------------------------------------------------------------
+
+const COMMANDS = [
+  { command: 'devices', description: 'List all monitored devices with current status' },
+  { command: 'services', description: 'List all network services with current status' },
+  { command: 'online', description: 'Show everything currently online' },
+  { command: 'offline', description: 'Show everything currently unreachable' },
+  { command: 'clients', description: 'Live client counts per device' },
+  { command: 'help', description: 'Show available commands' },
+];
+
+let botTimer = null;
+let botPolling = false;
+let botPollOffset = 0;
+let botMenuToken = null;
+
+// Register the command list with Telegram so clients show a menu.
+export async function registerBotMenu(token) {
+  if (!token) return false;
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/setMyCommands`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ commands: COMMANDS }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.ok !== false) { botMenuToken = token; return true; }
+    console.error(`[telegram] setMyCommands failed: ${data.description || `HTTP ${res.status}`}`);
+    return false;
+  } catch (e) { console.error(`[telegram] setMyCommands error: ${e.message}`); return false; }
+}
+
+// Pure reply builder — exported for tests and reuse.
+export function buildCommandReply(text) {
+  const cmd = String(text || '').trim().split(' ')[0].replace(/^\/+/, '').toLowerCase();
+  const deviceStatus = new Map((latestUptimeAll() || []).map(u => [u.device_id, Number(u.status) === 1]));
+  const serviceStatus = new Map((latestServiceUptimeAll() || []).map(u => [u.service_id, Number(u.status) === 1]));
+
+  if (cmd === 'devices' || cmd === 'services') {
+    const isDev = cmd === 'devices';
+    const items = isDev ? listDevices() : listServices();
+    if (!items.length) return `${isDev ? 'No devices' : 'No services'} are configured yet.`;
+    const map = isDev ? deviceStatus : serviceStatus;
+    const lines = items.map(it => {
+      const up = map.get(it.id);
+      const sym = up === undefined ? '❔' : up ? '✅' : '🔴';
+      return `${sym} ${it.name} (${it.host})`;
+    });
+    return `${isDev ? '📡 Devices' : '🧩 Services'} (${items.length})\n${lines.join('\n')}`;
+  }
+
+  if (cmd === 'online' || cmd === 'offline') {
+    const wantUp = cmd === 'online';
+    const one = (items, map, sym) => items.filter(it => map.get(it.id) === wantUp).map(it => `${sym} ${it.name} (${it.host})`);
+    const lines = [...one(listDevices(), deviceStatus, wantUp ? '✅' : '🔴'), ...one(listServices(), serviceStatus, wantUp ? '✅' : '🔴')];
+    if (!lines.length) return `Nothing is ${wantUp ? 'online' : 'down'} right now.`;
+    return `${wantUp ? '✅ Online' : '🔴 Offline'} (${lines.length})\n${lines.join('\n')}`;
+  }
+
+  if (cmd === 'clients') {
+    const devs = listDevices();
+    if (!devs.length) return 'No devices are configured yet.';
+    const lines = devs.map(d => {
+      const m = latestMetric(d.id);
+      const n = m ? (m.clients_count ?? m.clientsCount ?? null) : null;
+      return `${n == null ? '❔' : '🏠'} ${d.name} — ${n == null ? 'no data yet' : `${n} client${n === 1 ? '' : 's'}`}`;
+    });
+    return `👥 Connected clients\n${lines.join('\n')}`;
+  }
+
+  if (cmd === 'help' || cmd === 'start') {
+    return `RouterDeck bot\n\n/devices — list monitored devices with status\n/services — list network services with status\n/online — everything currently up\n/offline — everything currently down\n/clients — live client counts per device\n/help — this message`;
+  }
+
+  if (cmd) return `Unknown command "/${cmd}". Try /help.`;
+  return null; // non-command message: ignore
+}
+
+async function handleTelegramUpdate(update) {
+  const msg = update.message || update.channel_post || update.edited_message;
+  if (!msg || !msg.chat || typeof msg.text !== 'string' || !msg.text.trim().startsWith('/')) return;
+  const reply = buildCommandReply(msg.text);
+  if (reply == null) return;
+  const settings = getTelegramSettings();
+  const token = getTelegramBotToken();
+  if (!settings.enabled || !token) return;
+  const sent = await sendTelegram({ token, chatId: msg.chat.id, text: reply });
+  if (!sent.ok) console.error(`[telegram] command ${msg.text.trim()} -> ${msg.chat.id}: ${sent.error}`);
+}
+
+async function pollTelegramOnce() {
+  const settings = getTelegramSettings();
+  const token = getTelegramBotToken();
+  if (!settings.enabled || !token) return;
+  if (botMenuToken !== token && !(await registerBotMenu(token))) return;
+  let res;
+  try {
+    res = await fetch(`https://api.telegram.org/bot${token}/getUpdates?offset=${botPollOffset}&timeout=5`);
+  } catch { return; }
+  let data;
+  try { data = await res.json(); } catch { return; }
+  if (data.ok === false) { console.error(`[telegram] getUpdates: ${data.description}`); return; }
+  const updates = Array.isArray(data.result) ? data.result : [];
+  if (!updates.length) return;
+  botPollOffset = updates[updates.length - 1].update_id + 1;
+  for (const u of updates) { try { await handleTelegramUpdate(u); } catch {} }
+}
+
+// Idempotent: safe to call again when settings change (re-registers the menu
+// and restarts the poll loop with the current token). Timers are unref'd so
+// they never keep the process alive on shutdown.
+export function startTelegramBot() {
+  if (botTimer) clearInterval(botTimer);
+  botTimer = setInterval(() => {
+    if (botPolling) return;
+    botPolling = true;
+    pollTelegramOnce().finally(() => { botPolling = false; });
+  }, 10000);
+  botTimer.unref?.();
+  if (!botPolling) {
+    botPolling = true;
+    pollTelegramOnce().finally(() => { botPolling = false; });
   }
 }

@@ -6,7 +6,7 @@ import {
   listDevices, getDevice, insertMetric, insertUptime, cleanupHistory, updateDetectedModel,
   listServices, getService, insertServiceMetric, insertServiceUptime,
 } from '../db/index.js';
-import { maybeNotify, seedLastStates } from './telegram.js';
+import { maybeNotify, seedLastStates, startTelegramBot } from './telegram.js';
 
 const execFileAsync = promisify(execFile);
 const runningStats = new Set();
@@ -31,6 +31,7 @@ export function startMonitoring(io) {
   // Baseline from the last recorded checks so Telegram only fires on real
   // transitions — and a restart during an outage still reports recovery.
   seedLastStates();
+  startTelegramBot(); // interactive bot commands (/devices etc.), enables itself when configured
 
   const pollOne = async basic => {
     if (runningStats.has(basic.id)) return;

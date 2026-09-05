@@ -128,6 +128,21 @@ Then open http://localhost:8080.
 4. Each chat can be routed to **all** devices/services or to a **selected** subset (e.g. a "Server room" chat for Proxmox alerts and a "Home" chat for router/AP alerts), with independent DOWN/UP toggles and a per-chat **Test** button.
 5. Alerts are sent only on status *changes* — an ongoing outage does not spam the chat, and an item already down across a restart still reports its recovery.
 
+### Telegram bot commands
+
+Once Telegram notifications are enabled, the bot also answers interactive
+commands in any chat it is added to (the command menu registers itself
+automatically via the Telegram client):
+
+| Command | Reply |
+|---|---|
+| `/devices` | All monitored devices with current status (✅ up / 🔴 down / ❔ no data) |
+| `/services` | All network services with current status |
+| `/online` | Everything currently up (devices + services) |
+| `/offline` | Everything currently unreachable |
+| `/clients` | Live connected-client count per device |
+| `/help` | This command list |
+
 ### Public status page
 
 Enable sharing in **Uptime → Public status page** settings: title, subtitle, auto-refresh and accent color. The read-only page is served at `/status` without login. Router credentials, metrics and client data stay behind login.

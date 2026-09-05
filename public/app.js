@@ -285,6 +285,7 @@ function serviceMetricOf(service) { return state.serviceLive.get(service.id) || 
 
 socket.on('metric', ({ deviceId, metric }) => {
   state.live.set(deviceId, metric);
+  recordTrafficSample(deviceId);
   if (state.selected === deviceId && state.page === 'device') updateOpenDevice(metric);
   if (state.page === 'dashboard') patchDashboardDevice(deviceId);
   else if (state.page === 'devices') patchDeviceListRow(deviceId);
@@ -683,9 +684,11 @@ function renderDashboard(animate = true) {
   const host = state.devices.find(d => d.osType === 'mikrotik' && d.deviceRole === 'host');
   setContent(summaryCards() +
     `<div class="section-head dashboard-section-head"><div><h2>Network devices</h2><p>Current status and resource use</p></div>${dashboardEditButton('devices')}</div>` + deviceCards() +
-    `<div class="section-head service-section-head dashboard-section-head"><div><h2>Network services</h2><p>DNS, home automation, virtualization, storage and home-server apps managed by RouterDeck</p></div>${dashboardEditButton('services')}</div>` + serviceCards() +
+    `<div class="section-head service-section-head dashboard-section-head"><div><h2>Network services</h2><p>DNS, home automation, virtualization, storage and home-server apps managed by RouterDeck</p></div>${dashboardEditButton('services')}</div>` + serviceCards() + trafficSectionHTML() +
     (host ? `<div id="dashboard-connection-analytics" class="connection-analytics-slot dashboard-analytics">${state.hostAnalytics ? renderConnectionAnalytics(state.hostAnalytics) : analyticsSkeleton()}</div>` : ''), animate);
   bindDeviceCards(); bindServiceCards(); bindDashboardOrderEditors();
+  recordTrafficSample(host?.id);
+  bindTrafficPicker();
   updateOverviewClock();
   loadPublicIp(false);
   cleanupAnalyticsTimer();
@@ -1446,6 +1449,98 @@ function bandwidthChart(rows = []) {
     </svg></div>
     <div class="bandwidth-axis"><span>${new Date(data[0].ts).toLocaleTimeString([], dateOptionsWithZone({hour:'2-digit', minute:'2-digit', hour12:clockHour12()})).replace(/:/g,'.')}</span><span>${new Date(data.at(-1).ts).toLocaleTimeString([], dateOptionsWithZone({hour:'2-digit', minute:'2-digit', hour12:clockHour12()})).replace(/:/g,'.')}</span></div>
   </div>`;
+}
+
+const trafficState = { deviceId: null, iface: null, samples: [], last: null };
+
+function trafficHostDevice() {
+  return state.devices.find(d => d.osType === 'mikrotik' && d.deviceRole === 'host');
+}
+
+function trafficDefaultIface(d, metric) {
+  const ifaces = Array.isArray(metric.interfaces) ? metric.interfaces : [];
+  if (!ifaces.length) return null;
+  const preferred = d.monitorInterface || metric.deviceInfo?.monitorInterface || '';
+  if (preferred && ifaces.some(i => i.name === preferred)) return preferred;
+  return ifaces[0].name;
+}
+
+function recordTrafficSample(deviceId) {
+  const host = trafficHostDevice();
+  if (!host || deviceId !== host.id || state.page !== 'dashboard') return;
+  const metric = state.live.get(host.id);
+  const ifaces = Array.isArray(metric?.interfaces) ? metric.interfaces : [];
+  if (!ifaces.length) return renderTrafficCard();
+  const iface = trafficState.iface || trafficDefaultIface(host, metric);
+  if (!iface) return renderTrafficCard();
+  const row = ifaces.find(i => i.name === iface) || ifaces[0];
+  const key = `${host.id}:${row.name}`;
+  const now = Date.now();
+  if (trafficState.key !== key) { trafficState.key = key; trafficState.samples = []; trafficState.last = null; }
+  const last = trafficState.last;
+  if (last && Number.isFinite(row.rxBytes) && Number.isFinite(row.txBytes)) {
+    const dt = (now - last.t) / 1000;
+    if (dt > 0 && dt < 600) {
+      const drx = Number(row.rxBytes) - Number(last.rx);
+      const dtx = Number(row.txBytes) - Number(last.tx);
+      if (Number.isFinite(drx) && Number.isFinite(dtx) && drx >= 0 && dtx >= 0) {
+        trafficState.samples.push({ t: now, down: (drx * 8) / dt, up: (dtx * 8) / dt });
+        if (trafficState.samples.length > 60) trafficState.samples.shift();
+      }
+    }
+  }
+  trafficState.last = { t: now, rx: row.rxBytes, tx: row.txBytes };
+  renderTrafficCard();
+}
+
+function trafficSectionHTML() {
+  const host = trafficHostDevice();
+  if (!host) return '';
+  const metric = state.live.get(host.id) || {};
+  const ifaces = Array.isArray(metric.interfaces) ? metric.interfaces : [];
+  if (!ifaces.length) return `<div class="section-head dashboard-section-head"><div><h2>Realtime traffic</h2><p>Live download / upload for the MikroTik host's monitored interfaces.</p></div></div><div class="card traffic-card"><div class="empty">Waiting for interface metrics from ${esc(host.name)}…</div></div>`;
+  const selected = trafficState.iface && ifaces.some(i => i.name === trafficState.iface) ? trafficState.iface : trafficDefaultIface(host, metric);
+  return `<div class="section-head dashboard-section-head"><div><h2>Realtime traffic</h2><p>Live download / upload for the MikroTik host's monitored interfaces.</p></div>
+    <label class="traffic-iface-picker">${heroIcon('arrows-right-left')}<select id="traffic-interface" aria-label="Traffic interface">${ifaces.map(i => `<option value="${esc(i.name)}" ${i.name === selected ? 'selected' : ''}>${esc(i.name)}</option>`).join('')}</select></label></div>
+    <div id="traffic-chart" class="card traffic-card">${trafficChartBody(selected)}</div>`;
+}
+
+function trafficChartBody(iface) {
+  const samples = trafficState.samples;
+  if (samples.length < 2) return `<div class="empty">Collecting traffic samples for <span class="mono">${esc(iface || '')}</span>…</div>`;
+  const max = Math.max(1, ...samples.flatMap(s => [s.down, s.up]));
+  const pts = key => samples.map((s, i) => { const x = (i / (samples.length - 1)) * 1000; const y = 170 - (Math.max(0, s[key]) / max) * 150; return `${x},${y}`; }).join(' ');
+  const latest = samples.at(-1);
+  return `<div class="bandwidth-chart">
+    <div class="bandwidth-legend"><span><i class="rx-line"></i> ↓ Download <b>${fmtBitsPerSec(latest.down)}</b></span><span><i class="tx-line"></i> ↑ Upload <b>${fmtBitsPerSec(latest.up)}</b></span><span class="muted">peak ${fmtBitsPerSec(max)}</span></div>
+    <div class="bandwidth-plot"><div class="bandwidth-y">${[1, .75, .5, .25, 0].map(t => `<span>${fmtBitsPerSec(max * t)}</span>`).join('')}</div><svg viewBox="0 0 1000 180" preserveAspectRatio="none" aria-label="Realtime interface traffic graph">
+      ${[20, 57.5, 95, 132.5, 170].map(y => `<line class="grid-line" x1="0" x2="1000" y1="${y}" y2="${y}"/>`).join('')}
+      <polyline class="bandwidth-rx" points="${pts('down')}"/><polyline class="bandwidth-tx" points="${pts('up')}"/>
+    </svg></div>
+    <div class="bandwidth-axis"><span>${formatClockTime(new Date(samples[0].t))}</span><span>${formatClockTime(new Date(samples.at(-1).t))}</span></div>
+  </div>`;
+}
+
+function renderTrafficCard() {
+  const select = $('#traffic-interface');
+  const chart = $('#traffic-chart');
+  if (!chart) return;
+  const host = trafficHostDevice();
+  const metric = state.live.get(host?.id) || {};
+  const ifaces = Array.isArray(metric.interfaces) ? metric.interfaces : [];
+  const current = select?.value || trafficState.iface || trafficDefaultIface(host, metric) || '';
+  if (select && current && select.value !== current) select.value = current;
+  chart.innerHTML = trafficChartBody(current);
+}
+
+function bindTrafficPicker() {
+  $('#traffic-interface')?.addEventListener('change', e => {
+    trafficState.iface = e.currentTarget.value;
+    trafficState.samples = [];
+    trafficState.last = null;
+    trafficState.key = null;
+    renderTrafficCard();
+  });
 }
 
 function deviceSummaryCards(live, d = null) {
