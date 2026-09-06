@@ -499,7 +499,7 @@ function beginSoftRefresh() { $('#refresh-page')?.classList.add('refreshing'); }
 function endSoftRefresh() { $('#refresh-page')?.classList.remove('refreshing'); }
 
 function deviceListRows(devices = state.devices) {
-  if (!devices.length) return `<div class="empty device-list-empty">No devices match the current search.</div>`;
+  if (!devices.length) return `<div class="empty device-list-empty">No devices match the current filters.</div>`;
   return devices.map(d => {
     const m = metricOf(d);
     const u = state.uptime.get(d.id);
@@ -523,8 +523,11 @@ function updateDeviceList() {
   const list = $('#device-list');
   if (!list) return;
   const q = ($('#device-search')?.value || '').trim().toLowerCase();
-  const rows = state.devices.filter(d => !q || d.name.toLowerCase().includes(q));
+  const type = $('#device-type-filter')?.value || 'all';
+  const rows = state.devices.filter(d => (type === 'all' || d.osType === type) && (!q || d.name.toLowerCase().includes(q)));
   list.innerHTML = deviceListRows(rows);
+  const count = $('#device-filter-count');
+  if (count) count.textContent = `${rows.length} of ${state.devices.length} device${state.devices.length === 1 ? '' : 's'}`;
   bindDeviceCards();
 }
 
@@ -694,15 +697,18 @@ function renderDashboard(animate = true) {
 }
 function renderDevices(animate = true) {
   setTitle('Devices', 'Manage your network devices');
-  setContent(`<div class="section-head device-section-head"><div><h2>Device inventory</h2><p>Search monitored devices.</p></div><button type="button" class="primary button-with-icon" id="add-inline">${heroIcon('plus')}<span>Add</span></button></div>
+  setContent(`<div class="section-head device-section-head"><div><h2>Device inventory</h2><p>Search and filter monitored devices.</p></div><button type="button" class="primary button-with-icon" id="add-inline">${heroIcon('plus')}<span>Add</span></button></div>
     <div class="device-toolbar">
       <label class="device-search">${heroIcon('search')}<input id="device-search" type="search" autocomplete="off" placeholder="Search device name…" aria-label="Search device name" /></label>
+      <label class="device-type-filter">${heroIcon('funnel')}<select id="device-type-filter" aria-label="Filter by device type"><option value="all">All device types</option><option value="openwrt">OpenWrt</option><option value="mikrotik">MikroTik RouterOS</option><option value="generic">Generic uptime</option><option value="ruijie">Ruijie Cloud switch</option></select></label>
+      <span id="device-filter-count" class="device-filter-count"></span>
     </div>
     <div id="device-list" class="device-list">${deviceListRows()}</div>
     <div class="section-head device-section-head network-services-inventory"><div><h2>Network services</h2><p>AdGuard Home, Home Assistant, Proxmox VE, Synology DSM, Nginx Proxy Manager and CasaOS managed alongside your devices.</p></div></div>
     <div id="service-list" class="device-list service-list">${serviceListRows()}</div>`, animate);
   $('#add-inline')?.addEventListener('click', () => openDialog('device'));
   $('#device-search')?.addEventListener('input', updateDeviceList);
+  $('#device-type-filter')?.addEventListener('change', updateDeviceList);
   updateDeviceList(); updateServiceList();
 }
 
@@ -811,7 +817,11 @@ function topologyClientLinksMarkup() {
 function topologyClientCardsMarkup() {
   return topologyAttachedClientGroups().map(group => {
     const rows = group.clients.map(client => `<div class="topology-client-row"><span class="topology-client-row-icon">${heroIcon('client')}</span><span><strong>${esc(client.hostname || 'Connected device')}</strong><small>${esc(client.address || client.mac || 'Unknown address')}</small></span><em>${esc(client.source || 'Client')}</em></div>`).join('');
-    return '';
+    return `<article class="topology-client-group" data-topology-client-parent="${group.parentNodeId}" style="left:${group.x}px;top:${group.y}px" aria-label="Connected devices">
+      <header><span>Connected devices</span><b>${group.clients.length + group.extraCount}</b></header>
+      <div class="topology-client-rows">${rows}</div>
+      ${group.extraCount ? `<div class="topology-client-more">+${group.extraCount} more connected device${group.extraCount === 1 ? '' : 's'}</div>` : ''}
+    </article>`;
   }).join('');
 }
 
@@ -825,6 +835,7 @@ function topologyNodeMarkup(node) {
       <div class="topology-node-icon">${entity.icon}<span class="device-status-dot ${entity.status}" title="${statusText}"></span></div>
       <div class="topology-node-copy"><strong>${esc(entity.name)}</strong><span>${esc(entity.label)}</span><small>${esc(entity.host)}</small></div>
       <div class="topology-node-actions">
+        <button type="button" class="icon-btn topology-open" data-topology-open="${node.id}" aria-label="Open ${esc(entity.name)}" title="Open device">${heroIcon('external')}</button>
         <button type="button" class="icon-btn topology-connect ${active ? 'active' : ''}" data-topology-connect="${node.id}" aria-pressed="${active ? 'true' : 'false'}" aria-label="${active ? 'Cancel connection from' : 'Connect from'} ${esc(entity.name)}" title="${active ? 'Cancel connection' : 'Connect device'}">${heroIcon('chevronDoubleRight')}</button>
       </div>
     </div>
@@ -855,10 +866,11 @@ function topologyPageMarkup() {
       <div><strong>Network map</strong><span id="topology-save-state">Drag cards to arrange them. Changes save automatically.</span></div>
       <div class="topology-toolbar-actions"><button type="button" class="ghost button-with-icon" id="topology-auto-arrange">${heroIcon('sparkles')}<span>Auto arrange</span></button><button type="button" class="ghost button-with-icon" id="topology-clear-links" ${topology.links.length ? '' : 'disabled'}>${heroIcon('trash')}<span>Clear links</span></button></div>
     </div>
-    <div class="topology-help ${connectingEntity ? 'connecting' : ''}" id="topology-help">${connectingEntity ? `Connecting from <b>${esc(connectingEntity.name)}</b>. Choose the double-chevron on the destination card, or select the same card to cancel.` : 'To connect devices, select the double-chevron on the first card and then on the destination card.'}</div>
+    <div class="topology-help ${connectingEntity ? 'connecting' : ''}" id="topology-help">${connectingEntity ? `Connecting from <b>${esc(connectingEntity.name)}</b>. Choose the double-chevron on the destination card, or select the same card to cancel.` : 'To connect devices, select the double-chevron on the first card and then on the destination card. Live clients appear automatically beside AP/client devices.'}</div>
     <div class="topology-scroll" id="topology-scroll"><div class="topology-canvas" id="topology-canvas" style="width:${width}px;height:${height}px">
-      <svg class="topology-links" id="topology-links" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" aria-hidden="true">${topologyLinksMarkup()}</svg>
+      <svg class="topology-links" id="topology-links" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" aria-hidden="true">${topologyLinksMarkup()}${topologyClientLinksMarkup()}</svg>
       ${topology.nodes.map(topologyNodeMarkup).join('')}
+      ${topologyClientCardsMarkup()}
     </div></div>
     <div class="card topology-connections"><div class="section-head compact"><div><h3>Connections</h3><p>${topology.links.length} saved link${topology.links.length === 1 ? '' : 's'}</p></div></div>${topologyConnectionRows()}</div>`;
 }
@@ -962,6 +974,11 @@ function bindTopologyInteractions() {
     scheduleTopologySave(0);
   });
 
+  $$('[data-topology-open]').forEach(button => button.addEventListener('click', event => {
+    event.stopPropagation();
+    openTopologyNode(Number(button.dataset.topologyOpen));
+  }));
+
   $$('[data-topology-connect]').forEach(button => button.addEventListener('click', event => {
     event.stopPropagation();
     const nodeId = Number(button.dataset.topologyConnect);
@@ -1016,6 +1033,7 @@ function bindTopologyInteractions() {
         node.y = Math.max(10, Math.min(maxY, Math.round(startY + moveEvent.clientY - startPointerY)));
         card.style.left = `${node.x}px`;
         card.style.top = `${node.y}px`;
+        syncTopologyClientPositions(nodeId);
         redrawTopologyLinks();
       };
       const finish = finishEvent => {
@@ -1034,7 +1052,7 @@ function bindTopologyInteractions() {
 }
 
 async function renderTopology(animate = true) {
-  setTitle('Topology', 'Arrange network devices and save their connections');
+  setTitle('Topology', 'Arrange network devices and view their connected clients');
   setContent('<div class="card topology-loading"><div class="skeleton sk-line"></div><div class="skeleton sk-line"></div><div class="skeleton sk-line"></div></div>', animate);
   try {
     state.topology = await api('/api/topology');
