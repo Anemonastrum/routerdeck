@@ -9,7 +9,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "check": "node scripts/check.mjs"
+    "check": "node scripts/check.mjs",
+    "test": "npm run test.unit",
+    "test.unit": "node --test"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.10.0",
@@ -22,5 +24,9 @@
     "ssh2": "^1.16.0",
     "geoip-lite": "1.4.10",
     "ws": "^8.18.3"
+  },
+  "overrides": {
+    "rimraf": "^5.0.0",
+    "glob": "13.0.6"
   }
 }

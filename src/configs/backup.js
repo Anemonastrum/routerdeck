@@ -40,7 +40,15 @@ export function restoreConfigurationBackup(backup, password = '') {
   if (!backup || backup.format !== FORMAT || Number(backup.version) !== 1) {
     throw new Error('This is not a supported RouterDeck configuration backup');
   }
+
   const secret = effectivePassword(password, backup.mode);
+
+  // Stage 1 — decrypt. Any failure here (wrong password, tampered payload,
+  // malformed envelope) maps to one friendly message. We deliberately do NOT
+  // classify the error by message text: OpenSSL/GCM wording varies across
+  // Node versions, so a regex approach leaks raw errors like
+  // "Unsupported state or unable to authenticate data".
+  let decrypted;
   try {
     const salt = Buffer.from(String(backup.salt || ''), 'base64url');
     const iv = Buffer.from(String(backup.iv || ''), 'base64url');
@@ -49,10 +57,21 @@ export function restoreConfigurationBackup(backup, password = '') {
     const key = deriveKey(secret, salt);
     const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
     decipher.setAuthTag(tag);
-    const plain = Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf8');
-    return restoreConfiguration(JSON.parse(plain));
-  } catch (error) {
-    if (/Unsupported|more than one|device type|service type/.test(error?.message || '')) throw error;
+    decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf8');
+  } catch {
     throw new Error('Could not decrypt or restore this backup. Check the backup password and APP_SECRET.');
   }
+
+  // Stage 2 — parse the envelope (GCM already authenticates the bytes, so a
+  // parse failure means a corrupt payload, not a wrong password).
+  let config;
+  try {
+    config = JSON.parse(decrypted);
+  } catch {
+    throw new Error('Could not decrypt or restore this backup. Check the backup password and APP_SECRET.');
+  }
+
+  // Stage 3 — restore. Validation errors (bad format/types, duplicate
+  // gateways) pass through untouched so the user sees the precise reason.
+  return restoreConfiguration(config);
 }
