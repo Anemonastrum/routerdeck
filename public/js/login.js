@@ -38,29 +38,4 @@ export function setupLogin({ authenticate, onAuthenticated }) {
     panel.classList.toggle('hidden', !opening);
     helpButton.setAttribute('aria-expanded', opening ? 'true' : 'false');
   });
-
-  // Liquid-glass pointer tilt: the login pane leans toward the cursor like a
-  // film of glass. Fine pointers only, skipped when the user prefers motion off.
-  const panel = $('.login-panel');
-  const motionOk = !window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
-  const finePointer = window.matchMedia?.('(pointer: fine)')?.matches;
-  if (panel && motionOk && finePointer) {
-    let raf = 0;
-    const tilt = event => {
-      const rect = panel.getBoundingClientRect();
-      if (!rect.width || !rect.height) return;
-      const px = (event.clientX - rect.left) / rect.width - .5;
-      const py = (event.clientY - rect.top) / rect.height - .5;
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
-        panel.style.transform = `perspective(900px) rotateX(${(-py * 2.6).toFixed(2)}deg) rotateY(${(px * 2.6).toFixed(2)}deg)`;
-      });
-    };
-    const reset = () => {
-      cancelAnimationFrame(raf);
-      panel.style.transform = '';
-    };
-    panel.addEventListener('pointermove', tilt);
-    panel.addEventListener('pointerleave', reset);
-  }
 }
