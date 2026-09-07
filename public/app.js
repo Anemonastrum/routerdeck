@@ -37,7 +37,7 @@ const state = {
   hostAnalytics: null,
   hostAnalyticsAt: 0,
   publicIp: null,
-  appSettings: { appName: 'RouterDeck', clockFormat: '24h', theme: 'system', timeZone: 'auto', githubUrl: 'https://github.com/' },
+  appSettings: { appName: 'RouterDeck', clockFormat: '24h', theme: 'system', timeZone: 'auto', githubUrl: 'https://github.com/Anemonastrum/routerdeck' },
   routerData: { queues: [], queueKind: 'simple', firewall: [], firewallTable: 'filter', logs: [], wireless: [], internetBlocks: [] },
   dashboardEdit: { devices: false, services: false },
   editTarget: null,
@@ -342,7 +342,7 @@ function summaryCards() {
   const avg = cpus.length ? cpus.reduce((a, b) => a + b, 0) / cpus.length : null;
   return `<div class="cards overview-summary">
     <div class="card clock-card"><div class="stat-label">Local time</div><div class="clock-time" id="overview-clock-time">${formatClockTime()}</div><div class="clock-date" id="overview-clock-date">${esc(formatClockDate())}</div></div>
-    <div class="card public-ip-card"><div class="stat-label">Public IP</div><div class="stat-value public-ip-value" data-summary="public-ip">${esc(state.publicIp?.ip || '—')}</div><small class="stat-note" data-summary="public-ip-note">${state.publicIp?.cached ? 'cached result' : 'internet egress'}</small></div>
+    <div class="card public-ip-card"><div class="stat-label">Public IP</div><div class="stat-value public-ip-value" data-summary="public-ip">${esc(state.publicIp?.ip || '—')}</div><small class="stat-note" data-summary="public-ip-note">${state.publicIp?.cached ? 'cached result' : ' '}</small></div>
     <div class="card"><div class="stat-label">Online</div><div class="stat-value" data-summary="online">${up}<small class="stat-note"> / ${total} total${down ? ` · ${down} down` : ''}</small></div></div>
     <div class="card"><div class="stat-label">Connected clients</div><div class="stat-value" data-summary="clients">${clients}</div></div>
     <div class="card"><div class="stat-label">Average CPU</div><div class="stat-value" data-summary="cpu">${fmtPct(avg)}</div></div>
@@ -409,22 +409,22 @@ function orderedDashboardServices() {
   return [...state.services].sort((a,b) => Number(a.displayOrder ?? 0) - Number(b.displayOrder ?? 0) || String(a.name).localeCompare(String(b.name)));
 }
 function serviceCards() {
-  if (!state.services.length) return `<div class="empty service-empty">No network services yet. Use <b>Add</b> to register AdGuard Home, Home Assistant, Proxmox VE, Synology DSM, Nginx Proxy Manager, or CasaOS.</div>`;
+  if (!state.services.length) return `<div class="empty service-empty">No network services yet. Use <b>Add</b> to register a Service.</div>`;
   const editing = state.dashboardEdit.services;
   return `<div class="service-grid dashboard-sort-grid ${editing ? 'order-edit-mode' : ''}" data-order-kind="services">${orderedDashboardServices().map(service => {
     const m = serviceMetricOf(service); const st = serviceStatus(service);
     const protection = m.protectionEnabled ?? (m.protection_enabled == null ? null : Boolean(m.protection_enabled));
     const role = service.serviceType === 'homeassistant'
-      ? `<span class="role-pill host">${st === 'up' ? 'API online' : st === 'down' ? 'API offline' : 'Unknown'}</span>`
+      ? `<span class="role-pill host">${st === 'up' ? 'Online' : st === 'down' ? 'Offline' : 'Unknown'}</span>`
       : service.serviceType === 'proxmox'
         ? `<span class="role-pill host">${st === 'up' ? `${Number(m.runningCount ?? 0)} running` : st === 'down' ? 'API offline' : 'Unknown'}</span>`
         : service.serviceType === 'synology'
-          ? `<span class="role-pill host">${st === 'up' ? (m.health && String(m.health).toLowerCase() !== 'unknown' ? esc(String(m.health)) : 'DSM online') : st === 'down' ? 'DSM offline' : 'Unknown'}</span>`
+          ? `<span class="role-pill host">${st === 'up' ? (m.health && String(m.health).toLowerCase() !== 'unknown' ? esc(String(m.health)) : 'Online') : st === 'down' ? 'Offline' : 'Unknown'}</span>`
           : service.serviceType === 'nginxproxymanager'
             ? `<span class="role-pill host">${st === 'up' ? `${Number(m.enabledProxyHostCount ?? 0)} enabled` : st === 'down' ? 'API offline' : 'Unknown'}</span>`
             : service.serviceType === 'casaos'
               ? `<span class="role-pill host">${st === 'up' ? `${Number(m.runningAppCount ?? 0)} running` : st === 'down' ? 'API offline' : 'Unknown'}</span>`
-              : `<span class="role-pill ${protection === false ? 'client' : 'host'}">${protection == null ? 'Unknown' : protection ? 'Protection on' : 'Protection off'}</span>`;
+              : `<span class="role-pill ${protection === false ? 'client' : 'host'}">${protection == null ? 'Unknown' : protection ? 'Enabled' : 'Disabled'}</span>`;
     const descriptor = service.serviceType === 'homeassistant' ? 'Home automation service' : service.serviceType === 'proxmox' ? 'Virtualization service' : service.serviceType === 'synology' ? 'NAS / storage service' : service.serviceType === 'nginxproxymanager' ? 'Reverse proxy service' : service.serviceType === 'casaos' ? 'Home server application platform' : 'DNS filtering service';
     return `<article class="service-card ${editing ? 'order-card' : ''}" data-service="${service.id}" ${editing ? `role="group" aria-label="Drag ${esc(service.name)} to rearrange" title="Drag card to rearrange"` : `tabindex="0" role="button" aria-label="Open ${esc(service.name)}"`}>
       <div class="device-top"><div class="device-identity">${serviceIcon(service.serviceType)}<div><div class="device-name">${esc(service.name)}</div><div class="device-model">${serviceLabel(service.serviceType)} ${esc(m.version || '')}</div><div class="device-host">${esc(serviceWebUrl(service).replace(/^https?:\/\//,''))}</div></div></div><span class="device-status-dot ${st}" title="${st === 'up' ? 'Online' : st === 'down' ? 'Offline' : 'Unknown'}"></span></div>
@@ -683,8 +683,8 @@ function renderDashboard(animate = true) {
   setTitle('Overview', 'Live health across your network');
   const host = state.devices.find(d => d.osType === 'mikrotik' && d.deviceRole === 'host');
   setContent(summaryCards() +
-    `<div class="section-head dashboard-section-head"><div><h2>Network devices</h2><p>Current status and resource use</p></div>${dashboardEditButton('devices')}</div>` + deviceCards() +
-    `<div class="section-head service-section-head dashboard-section-head"><div><h2>Network services</h2><p>DNS, home automation, virtualization, storage and home-server apps managed by RouterDeck</p></div>${dashboardEditButton('services')}</div>` + serviceCards() + trafficSectionHTML() +
+    `<div class="section-head dashboard-section-head"><div><h2>Network devices</h2><p>Managed network devices stats</p></div>${dashboardEditButton('devices')}</div>` + deviceCards() +
+    `<div class="section-head service-section-head dashboard-section-head"><div><h2>Network services</h2><p>Managed network services stats</p></div>${dashboardEditButton('services')}</div>` + serviceCards() + trafficSectionHTML() +
     (host ? `<div id="dashboard-connection-analytics" class="connection-analytics-slot dashboard-analytics">${state.hostAnalytics ? renderConnectionAnalytics(state.hostAnalytics) : analyticsSkeleton()}</div>` : ''), animate);
   bindDeviceCards(); bindServiceCards(); bindDashboardOrderEditors();
   recordTrafficSample(host?.id);
@@ -699,12 +699,10 @@ function renderDevices(animate = true) {
   setTitle('Devices', 'Manage your network devices');
   setContent(`<div class="section-head device-section-head"><div><h2>Device inventory</h2><p>Search and filter monitored devices.</p></div><button type="button" class="primary button-with-icon" id="add-inline">${heroIcon('plus')}<span>Add</span></button></div>
     <div class="device-toolbar">
-      <label class="device-search">${heroIcon('search')}<input id="device-search" type="search" autocomplete="off" placeholder="Search device name…" aria-label="Search device name" /></label>
-      <label class="device-type-filter">${heroIcon('funnel')}<select id="device-type-filter" aria-label="Filter by device type"><option value="all">All device types</option><option value="openwrt">OpenWrt</option><option value="mikrotik">MikroTik RouterOS</option><option value="generic">Generic uptime</option><option value="ruijie">Ruijie Cloud switch</option></select></label>
-      <span id="device-filter-count" class="device-filter-count"></span>
+      <label class="device-search">${heroIcon('search')}<input id="device-search" type="search" autocomplete="off" placeholder="Search device or service name…" aria-label="Search device or service name" /></label>
     </div>
     <div id="device-list" class="device-list">${deviceListRows()}</div>
-    <div class="section-head device-section-head network-services-inventory"><div><h2>Network services</h2><p>AdGuard Home, Home Assistant, Proxmox VE, Synology DSM, Nginx Proxy Manager and CasaOS managed alongside your devices.</p></div></div>
+    <div class="section-head device-section-head network-services-inventory"><div><h2>Network services</h2><p>Your managed network services.</p></div></div>
     <div id="service-list" class="device-list service-list">${serviceListRows()}</div>`, animate);
   $('#add-inline')?.addEventListener('click', () => openDialog('device'));
   $('#device-search')?.addEventListener('input', updateDeviceList);
