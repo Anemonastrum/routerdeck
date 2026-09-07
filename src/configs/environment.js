@@ -6,9 +6,9 @@ function positiveInteger(value, fallback) {
 export function loadEnvironment() {
   const config = {
     port: positiveInteger(process.env.PORT, 8080),
-    appSecret: String(process.env.APP_SECRET || ''),
-    adminPassword: String(process.env.ADMIN_PASSWORD || ''),
-    cookieSecure: process.env.COOKIE_SECURE === 'true',
+    appSecret: String(process.env.APP_SECRET || '1111111111111111111111111111111111'),
+    adminPassword: String(process.env.ADMIN_PASSWORD || 'password'),
+    cookieSecure: process.env.COOKIE_SECURE || 'false',
     pollIntervalMs: Math.max(5000, positiveInteger(process.env.POLL_INTERVAL_MS, 15000)),
     uptimeIntervalMs: Math.max(10000, positiveInteger(process.env.UPTIME_INTERVAL_MS, 30000)),
   };

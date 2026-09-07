@@ -19,10 +19,11 @@
     "axios": "^1.11.0",
     "better-sqlite3": "13.0.3",
     "cookie-parser": "^1.4.7",
+    "dotenv": "^17.4.2",
     "express": "^5.1.0",
+    "geoip-lite": "1.4.10",
     "socket.io": "^4.8.1",
     "ssh2": "^1.16.0",
-    "geoip-lite": "1.4.10",
     "ws": "^8.18.3"
   },
   "overrides": {

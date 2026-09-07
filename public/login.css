@@ -1,49 +1,21 @@
-/* RouterDeck sign-in screen — liquid glass. Kept separate from the dashboard styles on purpose. */
+/* RouterDeck sign-in screen. Kept separate from the dashboard styles on purpose. */
 #login.login-shell {
   min-height: 100dvh;
   min-height: 100svh;
   display: grid;
   place-items: center;
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
   padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+  overflow: auto;
   background: var(--bg);
 }
 
-/* Aurora wash behind everything — the light the glass refracts. */
-#login.login-shell::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background:
-    radial-gradient(480px 480px at 16% 20%, color-mix(in srgb, var(--accent) 26%, transparent), transparent 70%),
-    radial-gradient(560px 560px at 84% 28%, color-mix(in srgb, #8aadf4 20%, transparent), transparent 70%),
-    radial-gradient(420px 420px at 68% 88%, color-mix(in srgb, #f5a97f 14%, transparent), transparent 72%);
-  filter: blur(34px) saturate(150%);
-  animation: routerdeck-glass-breathe 14s ease-in-out infinite;
-  pointer-events: none;
-}
-
-@keyframes routerdeck-glass-breathe {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: .92; }
-  50% { transform: translate3d(-2.5%, 2%, 0) scale(1.07); opacity: 1; }
-}
-
 #login .login-panel {
-  position: relative;
   width: min(440px, 100%);
   padding: 28px;
-  border: 1px solid transparent;
-  border-radius: 26px;
-  background:
-    linear-gradient(color-mix(in srgb, var(--panel) 55%, transparent) 0 0) padding-box,
-    linear-gradient(165deg, rgba(255,255,255,.18), rgba(255,255,255,.03) 36%, color-mix(in srgb, var(--accent) 22%, transparent)) border-box;
-  -webkit-backdrop-filter: blur(26px) saturate(170%);
-  backdrop-filter: blur(26px) saturate(170%);
-  box-shadow: 0 24px 70px -24px color-mix(in srgb, var(--text) 22%, transparent),
-              inset 0 1px 0 rgba(255,255,255,.07);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
   opacity: 0;
   transform: translateY(10px) scale(.99);
   transition: opacity .28s ease, transform .28s cubic-bezier(.2,.8,.2,1);
@@ -60,41 +32,6 @@
   transition-duration: .2s;
 }
 
-/* Specular top edge — liquid glass catches light along the rim. */
-#login .login-panel::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 10%;
-  right: 10%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,.34), transparent);
-  pointer-events: none;
-}
-
-/* Slow specular sweep — the "liquid" shimmer that travels across the pane. */
-#login .login-panel::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  border-radius: inherit;
-  background: linear-gradient(105deg,
-    transparent 42%,
-    rgba(255,255,255,.07) 47%,
-    rgba(255,255,255,.14) 50%,
-    rgba(255,255,255,.07) 53%,
-    transparent 58%);
-  transform: translateX(-130%) skewX(-12deg);
-  animation: routerdeck-glass-sheen 7.5s ease-in-out infinite 1.6s;
-  pointer-events: none;
-}
-
-@keyframes routerdeck-glass-sheen {
-  0%, 55% { transform: translateX(-130%) skewX(-12deg); }
-  86%, 100% { transform: translateX(135%) skewX(-12deg); }
-}
-
 #login .login-brand-row {
   display: flex;
   align-items: center;
@@ -106,12 +43,9 @@
   width: 48px;
   height: 48px;
   margin: 0;
-  border-radius: 14px;
+  border-radius: 13px;
   filter: none;
   flex: 0 0 auto;
-  box-shadow: 0 8px 18px -6px color-mix(in srgb, var(--text) 35%, transparent),
-              inset 0 0 0 1px rgba(255,255,255,.12);
-  background: color-mix(in srgb, var(--panel2) 55%, transparent);
 }
 
 #login .login-brand-copy {
@@ -167,32 +101,13 @@
   position: relative;
 }
 
-/* Frosted inset field. */
 #login .login-password-wrap input {
   width: 100%;
   min-height: 48px;
   padding: 0 44px 0 13px;
-  border: 1px solid color-mix(in srgb, var(--line) 62%, transparent);
-  border-radius: 13px;
-  background: color-mix(in srgb, var(--panel2) 40%, transparent);
-  -webkit-backdrop-filter: blur(12px) saturate(140%);
-  backdrop-filter: blur(12px) saturate(140%);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
-  color: var(--text);
+  border-radius: 11px;
+  background: var(--panel2);
   font-size: 14px;
-  transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
-}
-
-#login .login-password-wrap input::placeholder {
-  color: color-mix(in srgb, var(--muted) 70%, transparent);
-}
-
-#login .login-password-wrap input:focus {
-  outline: none;
-  border-color: color-mix(in srgb, var(--accent) 72%, transparent);
-  background: color-mix(in srgb, var(--panel2) 52%, transparent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent),
-              inset 0 1px 0 rgba(255,255,255,.08);
 }
 
 #login .login-field-icon {
@@ -207,7 +122,6 @@
 }
 
 #login .login-submit {
-  position: relative;
   width: 100%;
   min-height: 48px;
   margin-top: 12px;
@@ -215,21 +129,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
-  border-radius: 13px;
-  box-shadow: 0 12px 30px -12px color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: 11px;
   transition: transform .15s ease, box-shadow .15s ease, opacity .15s ease;
-}
-
-#login .login-submit::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,.22) 50%, transparent 70%);
-  transform: translateX(-130%);
-  animation: routerdeck-glass-sheen 5.5s ease-in-out infinite 0.8s;
-  pointer-events: none;
 }
 
 #login .login-submit svg {
@@ -239,8 +140,7 @@
 
 #login .login-submit:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 18%, transparent),
-              0 14px 36px -12px color-mix(in srgb, var(--accent) 50%, transparent);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 #login .login-submit:active:not(:disabled) {
@@ -265,7 +165,6 @@
   margin-top: 16px;
 }
 
-/* Glass chips. */
 #login .login-links a,
 #login .login-links button {
   min-width: 0;
@@ -276,18 +175,16 @@
   justify-content: center;
   gap: 7px;
   appearance: none;
-  border: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--panel2) 38%, transparent);
-  -webkit-backdrop-filter: blur(10px) saturate(140%);
-  backdrop-filter: blur(10px) saturate(140%);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel2);
   color: var(--muted);
   font: inherit;
   font-size: 10px;
   font-weight: 700;
   text-decoration: none;
   cursor: pointer;
-  transition: border-color .15s ease, background .15s ease, color .15s ease, box-shadow .15s ease;
+  transition: border-color .15s ease, background .15s ease, color .15s ease;
 }
 
 #login .login-links a:hover,
@@ -297,7 +194,6 @@
   border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
   background: color-mix(in srgb, var(--accent) 6%, var(--panel2));
   color: var(--text);
-  box-shadow: 0 6px 16px -8px color-mix(in srgb, var(--text) 30%, transparent);
   outline: none;
 }
 
@@ -310,11 +206,9 @@
 #login .login-help {
   margin-top: 10px;
   padding: 12px 13px;
-  border: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
-  border-radius: 13px;
-  background: color-mix(in srgb, var(--panel2) 38%, transparent);
-  -webkit-backdrop-filter: blur(12px) saturate(140%);
-  backdrop-filter: blur(12px) saturate(140%);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel2);
 }
 
 #login .login-help strong {
@@ -335,21 +229,12 @@
   font-size: .95em;
 }
 
-/* Glass pill footer note. */
 #login .login-security-note {
   margin-top: 18px;
-  padding: 8px 14px;
-  width: fit-content;
-  margin-inline: auto;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  border: 1px solid color-mix(in srgb, var(--line) 48%, transparent);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--panel2) 30%, transparent);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
   color: var(--muted);
   font-size: 9px;
   text-align: center;
@@ -372,21 +257,6 @@
   75% { transform: translateX(-2px); }
 }
 
-/* Graceful fallback when backdrop-filter is unavailable. */
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  #login .login-panel {
-    background: var(--panel);
-  }
-
-  #login .login-password-wrap input,
-  #login .login-links a,
-  #login .login-links button,
-  #login .login-help,
-  #login .login-security-note {
-    background: var(--panel2);
-  }
-}
-
 @media (max-width: 520px) {
   #login.login-shell {
     place-items: start center;
@@ -400,7 +270,7 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
-    border-radius: 22px;
+    border-radius: 18px;
   }
 
   #login .login-brand-row {
@@ -445,13 +315,6 @@
   }
 }
 
-/* Pointer tilt: the pane subtly leans toward the cursor like a film of liquid glass. */
-@media (pointer: fine) {
-  #login .login-panel {
-    will-change: transform;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   #login .login-panel,
   #login .login-submit,
@@ -462,12 +325,5 @@
 
   #login .login-error-shake {
     animation: none;
-  }
-
-  #login.login-shell::before,
-  #login .login-panel::after,
-  #login .login-submit::after {
-    animation: none;
-    transform: none;
   }
 }
