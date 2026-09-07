@@ -181,12 +181,57 @@ label.check input[type="checkbox"]:checked::after{
 }
 
 /* Devices inventory is a list, while the Overview keeps compact cards. */
-.device-section-head{align-items:center}
-.device-toolbar{display:grid;grid-template-columns:minmax(230px,1fr) minmax(210px,280px) auto;gap:10px;align-items:center;margin:0 0 12px}
+/* .device-section-head{align-items:center} */
+/* .device-toolbar{display:grid;grid-template-columns:minmax(230px,1fr) minmax(210px,280px) auto;gap:10px;align-items:center;margin:0 0 12px}
 .device-search,.device-type-filter{display:flex;align-items:center;gap:9px;min-width:0;padding:0 11px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--muted)}
 .device-search:focus-within,.device-type-filter:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 10%,transparent)}
 .device-search input,.device-type-filter select{min-width:0;border:0!important;background:transparent!important;padding:11px 0;box-shadow:none!important;outline:0}
-.device-search .hero-icon,.device-type-filter .hero-icon{width:18px;height:18px}
+.device-search .hero-icon,.device-type-filter .hero-icon{width:18px;height:18px} */
+.device-section-head {
+  align-items: center;
+}
+
+.device-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  margin: 0 0 12px;
+}
+
+.device-search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-width: 0;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--muted);
+}
+
+.device-search:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.device-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0 !important;
+  background: transparent !important;
+  padding: 11px 0;
+  box-shadow: none !important;
+  outline: 0;
+}
+
+.device-search .hero-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
 .device-filter-count{justify-self:end;color:var(--muted);font-size:11px;white-space:nowrap}
 .device-list{display:grid;gap:8px}
 .device-list-row{display:grid;grid-template-columns:minmax(260px,1.35fr) minmax(170px,.65fr) minmax(260px,1fr) 24px;align-items:center;gap:18px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:var(--panel);cursor:pointer;outline:0;transition:.16s transform,.16s border-color,.16s background,.16s box-shadow}
