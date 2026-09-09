@@ -61,18 +61,40 @@ function formatDowntime(ms) {
   return `${Math.floor(h / 24)}d ${h % 24}h`;
 }
 
-// Timestamp shown in alert messages. Uses the timezone picked in Settings ->
-// Appearance when set; otherwise the container's TZ (set via docker-compose)
-// is used, so alerts always carry the local time instead of UTC.
+// Alert timestamp. Mirrors the web app clock (Settings -> Appearance) as
+// closely as a server can: same clock format (12h "01.30.30 AM" / 24h
+// "18.30.30"), same dot separators, and the same timezone — the timezone
+// chosen in Settings when set, otherwise the container's TZ env, otherwise
+// the system default. The first alert logs the resolved zone so a mismatch
+// is diagnosable at a glance.
+let loggedTsFormat = false;
 function botTimeLabel() {
   const appSettings = getAppSettings();
-  const zone = appSettings?.timeZone && appSettings.timeZone !== 'auto' ? appSettings.timeZone : process.env.TZ || undefined;
+  const hour12 = appSettings?.clockFormat === '12h';
+  let zone;
+  let source;
+  if (appSettings?.timeZone && appSettings.timeZone !== 'auto') {
+    zone = appSettings.timeZone;
+    source = 'app settings';
+  } else if (process.env.TZ) {
+    zone = process.env.TZ;
+    source = 'TZ env';
+  } else {
+    try { zone = new Intl.DateTimeFormat().resolvedOptions().timeZone; } catch {}
+    source = 'system default';
+  }
+  if (!loggedTsFormat) {
+    loggedTsFormat = true;
+    console.log(`[telegram] alert timestamps use timezone=${zone || '(system default)'} (${source}), clock=${hour12 ? '12h' : '24h'}`);
+    if ((!appSettings?.timeZone || appSettings.timeZone === 'auto') && !process.env.TZ) {
+      console.warn('[telegram] TZ env is not set - alert times may be UTC. Set TZ in docker-compose (e.g. TZ=Asia/Jakarta) or pick a time zone in Settings -> Appearance.');
+    }
+  }
+  const withZone = zone ? { timeZone: zone } : {};
   try {
-    return new Intl.DateTimeFormat('en-GB', {
-      year: 'numeric', month: 'short', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', second: '2-digit',
-      ...(zone ? { timeZone: zone } : {}),
-    }).format(new Date());
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12, ...withZone }).replace(/:/g, '.');
+    const date = new Date().toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric', ...withZone });
+    return `${date}, ${time}`;
   } catch {
     return new Date().toLocaleString();
   }
