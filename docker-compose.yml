@@ -5,6 +5,7 @@ services:
     restart: unless-stopped
     environment:
       PORT: ${PORT:-8080}
+      TZ: ${TZ:-Asia/Jakarta}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}
       APP_SECRET: ${APP_SECRET:?Set APP_SECRET in .env}
       DB_PATH: ${DB_PATH:-/data/routerdeck.db}
@@ -16,7 +17,6 @@ services:
       RUIJIE_CLOUD_STALE_MS: ${RUIJIE_CLOUD_STALE_MS:-1800000}
       RUIJIE_RATE_LIMIT_BACKOFF_MS: ${RUIJIE_RATE_LIMIT_BACKOFF_MS:-300000}
       RUIJIE_INVENTORY_CACHE_SECONDS: ${RUIJIE_INVENTORY_CACHE_SECONDS:-900}
-      ROUTERDECK_GITHUB_URL: ${ROUTERDECK_GITHUB_URL:-https://github.com/}
       GATEWAY_ANALYTICS_TTL_MS: ${GATEWAY_ANALYTICS_TTL_MS:-15000}
     ports:
       - "8080:8080"

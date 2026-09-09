@@ -10,7 +10,7 @@
 // never exposed through the API. Notifications are fully disabled until the
 // user enables them in Settings -> Telegram notifications.
 
-import { getTelegramBotToken, getTelegramSettings, getTelegramRecipients, latestUptimeAll, latestServiceUptimeAll, latestMetric, listDevices, listServices } from '../db/index.js';
+import { getAppSettings, getTelegramBotToken, getTelegramSettings, getTelegramRecipients, latestUptimeAll, latestServiceUptimeAll, latestMetric, listDevices, listServices } from '../db/index.js';
 
 const lastStates = new Map();  // `${kind}:${id}` -> Boolean(ok)
 const downSince = new Map();   // `${kind}:${id}` -> ts when the DOWN transition happened
@@ -61,6 +61,23 @@ function formatDowntime(ms) {
   return `${Math.floor(h / 24)}d ${h % 24}h`;
 }
 
+// Timestamp shown in alert messages. Uses the timezone picked in Settings ->
+// Appearance when set; otherwise the container's TZ (set via docker-compose)
+// is used, so alerts always carry the local time instead of UTC.
+function botTimeLabel() {
+  const appSettings = getAppSettings();
+  const zone = appSettings?.timeZone && appSettings.timeZone !== 'auto' ? appSettings.timeZone : process.env.TZ || undefined;
+  try {
+    return new Intl.DateTimeFormat('en-GB', {
+      year: 'numeric', month: 'short', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      ...(zone ? { timeZone: zone } : {}),
+    }).format(new Date());
+  } catch {
+    return new Date().toLocaleString();
+  }
+}
+
 // kind: 'device' | 'service' — display: e.g. "Living Room AP (10.10.10.2)"
 // result: { ok, latencyMs, error } from the uptime check.
 export async function maybeNotify(kind, id, display, result = {}) {
@@ -82,7 +99,7 @@ export async function maybeNotify(kind, id, display, result = {}) {
 
   const kindLabel = kind === 'device' ? 'Device' : 'Service';
   const nameSafe = escHtml(display);
-  const time = new Date().toLocaleString();
+  const time = botTimeLabel();
 
   let text;
   if (ok) {
@@ -225,7 +242,21 @@ async function pollTelegramOnce() {
   } catch { return; }
   let data;
   try { data = await res.json(); } catch { return; }
-  if (data.ok === false) { console.error(`[telegram] getUpdates: ${data.description}`); return; }
+  if (data.ok === false) {
+    const desc = data.description || `HTTP ${res.status}`;
+    if (data.error_code === 409 && /webhook/i.test(desc)) {
+      // The bot already has a webhook (used elsewhere, or from an earlier
+      // config). getUpdates can never run side-by-side with a webhook, so
+      // clear it once and let the next poll continue normally.
+      console.warn('[telegram] getUpdates blocked by an active webhook — calling deleteWebhook and retrying');
+      try { await fetch(`https://api.telegram.org/bot${token}/deleteWebhook?drop_pending_updates=true`); } catch {}
+    } else if (data.error_code === 401) {
+      console.error('[telegram] Bot token was rejected by Telegram (401 Unauthorized). Check the token in Settings -> Telegram notifications.');
+    } else {
+      console.error(`[telegram] getUpdates: ${desc}`);
+    }
+    return;
+  }
   const updates = Array.isArray(data.result) ? data.result : [];
   if (!updates.length) return;
   botPollOffset = updates[updates.length - 1].update_id + 1;

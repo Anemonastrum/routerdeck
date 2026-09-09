@@ -110,7 +110,7 @@ Then open http://localhost:8080.
 | `RUIJIE_CLOUD_STALE_MS` | `1800000` | | How long stale Ruijie Cloud data is served. |
 | `RUIJIE_RATE_LIMIT_BACKOFF_MS` | `300000` | | Backoff applied after a Ruijie Cloud rate limit. |
 | `RUIJIE_INVENTORY_CACHE_SECONDS` | `900` | | Ruijie inventory cache TTL. |
-| `ROUTERDECK_GITHUB_URL` | `https://github.com/` | | Project link shown on the login page. |
+| `TZ` | `Asia/Jakarta` | | Container timezone so Telegram alert timestamps (and logs) use your local time instead of UTC. Override in your `.env` (e.g. `TZ=Europe/Berlin`). |
 | `GATEWAY_ANALYTICS_TTL_MS` | `15000` | | Server-side cache window for MikroTik gateway analytics. |
 
 ## First setup
