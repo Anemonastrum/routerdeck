@@ -13,6 +13,21 @@ const RUIJIE_CACHE_MS = Math.max(60_000, Number(process.env.RUIJIE_CLOUD_CACHE_M
 const RUIJIE_STALE_MS = Math.max(RUIJIE_CACHE_MS, Number(process.env.RUIJIE_CLOUD_STALE_MS || 30 * 60_000));
 const RUIJIE_BACKOFF_MS = Math.max(60_000, Number(process.env.RUIJIE_RATE_LIMIT_BACKOFF_MS || 5 * 60_000));
 
+export function normalizeRuijieBaseUrl(value = 'auto') {
+  const raw = String(value || 'auto').trim();
+  if (!raw || raw === 'auto') return 'auto';
+  if (/^[a-z][a-z\d+.-]*:\/\//i.test(raw) && !/^https?:\/\//i.test(raw)) throw new Error('Ruijie Cloud region must use HTTP or HTTPS');
+  let url;
+  try { url = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`); }
+  catch { throw new Error('Ruijie Cloud region must be a valid IP address or hostname'); }
+  if (!url.hostname || (url.pathname && url.pathname !== '/') || url.search || url.hash || url.username || url.password) throw new Error('Ruijie Cloud region must contain only HTTP(S), IP address or hostname, and optional port');
+  const host = url.hostname;
+  const ipv4 = /^(?:\d{1,3}\.){3}\d{1,3}$/.test(host) && host.split('.').every(part => Number(part) <= 255);
+  const hostname = host === 'localhost' || (host.includes('.') && host.split('.').every(part => /^(?!-)[a-z\d-]{1,63}(?<!-)$/i.test(part)));
+  if (!ipv4 && !hostname && !host.includes(':')) throw new Error('Ruijie Cloud region must be a valid IP address or hostname');
+  return url.origin;
+}
+
 function cloudKey(device) {
   const c = device.credentials || {};
   return `${String(c.ruijieAppId || '')}|${String(c.ruijieSerialNumber || '').toLowerCase()}|${String(c.ruijieBaseUrl || 'auto')}`;
@@ -96,7 +111,7 @@ function cloudConfig(device) {
     appId: c.ruijieAppId || '',
     appSecret: c.ruijieAppSecret || '',
     serialNumber: c.ruijieSerialNumber || '',
-    baseUrl: c.ruijieBaseUrl || 'auto',
+    baseUrl: normalizeRuijieBaseUrl(c.ruijieBaseUrl || 'auto'),
     apiToken: c.ruijieApiToken || process.env.RUIJIE_API_TOKEN || '',
   };
 }

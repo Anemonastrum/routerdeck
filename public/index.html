@@ -100,14 +100,14 @@
     <form id="device-form">
       <div class="dialog-head"><div><h2>Add to RouterDeck</h2><p>Add a network device or a managed network service.</p></div><button type="button" id="close-dialog" class="icon-btn" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18 18 6M6 6l12 12"/></svg></button></div>
       <div class="grid2 add-base-fields">
-        <label class="span2">Add<select name="entryKind" id="entry-kind"><option value="device">Network device</option><option value="camera">IP camera</option><option value="service">Network service</option></select></label>
+        <label class="span2">Add<select name="entryKind" id="entry-kind"><option value="device">Network device</option><option value="service">Network service</option></select></label>
         <label>Name<input name="name" required placeholder="Living Room AP" /></label>
         <label>IP / Hostname<input name="host" required placeholder="10.10.10.2" /></label>
       </div>
 
       <div id="device-entry-fields">
         <div class="grid2">
-          <label>Device type<select name="osType" id="os-type"><option value="openwrt">OpenWrt</option><option value="mikrotik">MikroTik RouterOS</option><option value="generic">Generic uptime monitor</option><option value="ruijie">Ruijie/Reyee Cloud switch</option></select></label>
+          <label>Device type<select name="osType" id="os-type"><option value="openwrt">OpenWrt</option><option value="mikrotik">MikroTik RouterOS</option><option value="generic">Generic uptime monitor</option><option value="ip_camera">IP camera</option><option value="ruijie">Ruijie/Reyee Cloud switch</option></select></label>
           <label>Monitoring connection<select name="connectionMode" id="connection-mode"><option value="ssh">SSH / ubus</option></select></label>
         </div>
         <div id="device-brand" class="service-form-brand device-form-brand"><img src="/img/openwrt.svg" alt="OpenWrt"/><div><strong>OpenWrt</strong><span>SSH / ubus router or access point</span></div></div>
@@ -137,7 +137,8 @@
         </div>
         <div id="ruijie-fields" class="grid2 hidden">
           <label>Device serial number<input name="ruijieSerialNumber" autocomplete="off" placeholder="G1XXXXXXXXXXXX" /></label>
-          <label>Ruijie Cloud region<select name="ruijieBaseUrl"><option value="auto">Auto detect (Asia / US)</option><option value="https://cloud-as.ruijienetworks.com">Asia</option><option value="https://cloud-us.ruijienetworks.com">US</option></select></label>
+          <label>Ruijie Cloud region<select name="ruijieRegion" id="ruijie-region"><option value="" hidden>Keep current</option><option value="auto">Auto detect (Asia / US)</option><option value="https://cloud-as.ruijienetworks.com">Asia</option><option value="https://cloud-us.ruijienetworks.com">US</option><option value="custom">Custom IP / hostname</option></select></label>
+          <label id="ruijie-custom-region-row" class="span2 hidden">Custom Cloud IP / hostname<input name="ruijieBaseUrl" autocomplete="off" placeholder="192.0.2.10 or cloud.example.com:8443" /><span class="form-hint">HTTPS is used when scheme is omitted. HTTP/HTTPS and optional port are accepted.</span></label>
           <label class="check span2" id="ruijie-reuse-row"><input name="ruijieReuseExisting" id="ruijie-reuse-existing" type="checkbox" /> Reuse the working Ruijie Cloud account from an existing device</label>
           <label class="ruijie-account-field">Cloud App ID<input name="ruijieAppId" autocomplete="off" /></label>
           <label class="ruijie-account-field">Cloud App Secret<input name="ruijieAppSecret" type="password" autocomplete="new-password" /></label>

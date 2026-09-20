@@ -15,6 +15,7 @@ import {
   updateDevice,
   uptimeHistory,
 } from '../db/index.js';
+import { normalizeRuijieBaseUrl } from '../drivers/ruijie.js';
 import {
   blockInternetByMac,
   collectDevice,
@@ -151,6 +152,8 @@ function validateNewDevice(req, res) {
   if (osType !== 'ruijie') return input;
 
   let credentials = { ...(req.body?.credentials || {}) };
+  try { credentials.ruijieBaseUrl = normalizeRuijieBaseUrl(credentials.ruijieBaseUrl || 'auto'); }
+  catch (error) { res.status(400).json({ error: error.message }); return null; }
   if (!String(credentials.ruijieSerialNumber || '').trim()) {
     res.status(400).json({ error: 'Ruijie/Reyee device serial number is required' });
     return null;
@@ -223,11 +226,13 @@ export function createDevicesRouter() {
     try {
       const existing = getDevice(Number(req.params.id), true);
       const role = req.body?.deviceRole ?? existing?.deviceRole;
-      const rtspUrl = req.body?.credentials?.rtspUrl ?? existing?.credentials?.rtspUrl;
+      const body = req.body || {};
+      const rtspUrl = body.credentials?.rtspUrl ?? existing?.credentials?.rtspUrl;
       if (existing?.osType === 'generic' && role === 'ip_camera' && !validRtspUrl(rtspUrl)) {
         return res.status(400).json({ error: 'IP camera requires a valid rtsp:// or rtsps:// stream URL' });
       }
-      const device = updateDevice(Number(req.params.id), req.body || {});
+      if (existing?.osType === 'ruijie' && body.credentials?.ruijieBaseUrl) body.credentials.ruijieBaseUrl = normalizeRuijieBaseUrl(body.credentials.ruijieBaseUrl);
+      const device = updateDevice(Number(req.params.id), body);
       if (!device) return res.status(404).json({ error: 'Not found' });
       return res.json(device);
     } catch (error) {

@@ -2,6 +2,18 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as drivers from '../drivers/index.js';
 import { collectGeneric } from '../drivers/generic.js';
+import { normalizeRuijieBaseUrl } from '../drivers/ruijie.js';
+
+test('Ruijie custom Cloud region accepts IP addresses and hostnames', () => {
+  assert.equal(normalizeRuijieBaseUrl('192.0.2.5'), 'https://192.0.2.5');
+  assert.equal(normalizeRuijieBaseUrl('cloud.example.test:8443'), 'https://cloud.example.test:8443');
+  assert.equal(normalizeRuijieBaseUrl('http://192.0.2.6:8080/'), 'http://192.0.2.6:8080');
+  assert.equal(normalizeRuijieBaseUrl('auto'), 'auto');
+  assert.throws(() => normalizeRuijieBaseUrl('ftp://cloud.example.test'), /HTTP or HTTPS/i);
+  assert.throws(() => normalizeRuijieBaseUrl('https://cloud.example.test/path'), /optional port/);
+  assert.throws(() => normalizeRuijieBaseUrl('not a host'), /valid IP address or hostname/);
+  assert.throws(() => normalizeRuijieBaseUrl('999.2.3.4'), /valid IP address or hostname/);
+});
 
 test('collectDevice throws on unsupported OS types', () => {
   assert.throws(() => drivers.collectDevice({ osType: 'bogus' }), /Unsupported OS type: bogus/);

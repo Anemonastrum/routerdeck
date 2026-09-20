@@ -11,7 +11,7 @@
 // user enables them in Settings -> Telegram notifications.
 
 import { randomBytes } from 'node:crypto';
-import { createDevice, deleteDevice, getAppSettings, getDevice, getTelegramBotToken, getTelegramSettings, getTelegramRecipients, latestUptimeAll, latestServiceUptimeAll, latestMetric, listDevices, listServices, updateDevice } from '../db/index.js';
+import { createDevice, createService, deleteDevice, deleteService, getAppSettings, getDevice, getService, getTelegramBotToken, getTelegramSettings, getTelegramRecipients, latestUptimeAll, latestServiceUptimeAll, latestMetric, listDevices, listServices, updateDevice, updateService } from '../db/index.js';
 
 const lastStates = new Map();  // `${kind}:${id}` -> Boolean(ok)
 const downSince = new Map();   // `${kind}:${id}` -> ts when the DOWN transition happened
@@ -167,22 +167,25 @@ export async function maybeNotify(kind, id, display, result = {}) {
 // ---------------------------------------------------------------------------
 
 const COMMANDS = [
-  { command: 'devices', description: 'List all monitored devices with current status' },
-  { command: 'services', description: 'List all network services with current status' },
+  { command: 'devices', description: 'List device names, IDs and status' },
+  { command: 'services', description: 'List service names, IDs and status' },
   { command: 'online', description: 'Show everything currently online' },
   { command: 'offline', description: 'Show everything currently unreachable' },
   { command: 'clients', description: 'Live client counts per device' },
-  { command: 'device_add', description: 'Add device: name|host|type|role' },
-  { command: 'device_edit', description: 'Edit device: id|name|host|role' },
-  { command: 'device_delete', description: 'Request confirmed device deletion' },
-  { command: 'help', description: 'Show available commands' },
+  { command: 'device_add', description: 'Add device; /help shows required input' },
+  { command: 'device_edit', description: 'Edit named device by ID' },
+  { command: 'device_delete', description: 'Delete named device by ID' },
+  { command: 'service_add', description: 'Add service; /help shows required input' },
+  { command: 'service_edit', description: 'Edit named service by ID' },
+  { command: 'service_delete', description: 'Delete named service by ID' },
+  { command: 'help', description: 'Show full command guide' },
 ];
 
 let botTimer = null;
 let botPolling = false;
 let botPollOffset = 0;
 let botMenuToken = null;
-const pendingDeviceDeletes = new Map();
+const pendingDeletes = new Map();
 
 function commandParts(text = '') {
   const [head = '', ...rest] = String(text).trim().split(/\s+/);
@@ -190,40 +193,60 @@ function commandParts(text = '') {
   return { command: head.replace(/^\/+/, '').split('@')[0].toLowerCase(), args: (tail.includes('|') ? tail.split('|') : rest).map(x => x.trim()) };
 }
 
-export async function executeDeviceCommand({ chatId, userId }, text) {
+export async function executeInventoryCommand({ chatId, userId }, text) {
   const { command, args } = commandParts(text);
   if (command === 'device_add') {
     const [name, host, type = 'generic', role = 'router'] = args;
-    if (!name || !host || !['generic','openwrt','mikrotik'].includes(type)) return 'Usage: /device_add name|host|generic|router';
+    const roles = type === 'generic' ? ['router','access_point','switch','ip_camera'] : type === 'openwrt' ? ['client','access_point'] : ['client','host'];
+    if (!name || !host || !['generic','openwrt','mikrotik'].includes(type) || !roles.includes(role)) return 'Usage: /device_add name|host|type|role\nTypes/roles: generic|router, access_point, switch, ip_camera; openwrt|client or access_point; mikrotik|client or host.';
     const device = createDevice({ name, host, osType:type, deviceRole:role });
-    return `Device added: #${device.id} ${device.name} (${device.host}). Add credentials in RouterDeck web UI when required.`;
+    return `Device added: #${device.id} ${device.name} (${device.host}), type=${device.osType}, role=${device.deviceRole}. Add credentials in RouterDeck web UI when required.`;
   }
   if (command === 'device_edit') {
     const [idRaw, name, host, role] = args;
-    const id = Number(idRaw);
-    if (!Number.isInteger(id) || !name || !host) return 'Usage: /device_edit id|name|host|role';
-    const device = updateDevice(id, { name, host, ...(role ? { deviceRole:role } : {}) });
-    return device ? `Device updated: #${device.id} ${device.name} (${device.host}).` : 'Device not found.';
+    const id = Number(idRaw), before = getDevice(id);
+    if (!Number.isInteger(id) || !name || !host || !role) return 'Usage: /device_edit id|name|host|role\nUse /devices to find device ID. All fields are required.';
+    if (!before) return `Device #${id} not found. Use /devices to list IDs and names.`;
+    const device = updateDevice(id, { name, host, deviceRole:role });
+    return `Device updated: #${id} ${before.name} -> ${device.name} (${device.host}), role=${device.deviceRole}.`;
   }
-  if (command === 'device_delete') {
-    const id = Number(args[0]);
-    const device = getDevice(id);
-    if (!device) return 'Device not found.';
+  if (command === 'service_add') {
+    const [name, host, type, scheme, portRaw] = args;
+    const port = Number(portRaw);
+    const types = ['adguardhome','homeassistant','proxmox','synology','nginxproxymanager','casaos'];
+    if (!name || !host || !types.includes(type) || !['http','https'].includes(scheme) || !Number.isInteger(port) || port < 1 || port > 65535) return 'Usage: /service_add name|host|type|scheme|port\nTypes: adguardhome, homeassistant, proxmox, synology, nginxproxymanager, casaos. Add credentials later in RouterDeck web UI.';
+    const service = createService({ name, host, serviceType:type, scheme, port });
+    return `Service added: #${service.id} ${service.name} (${service.webUrl}), type=${service.serviceType}. Add required credentials in RouterDeck web UI.`;
+  }
+  if (command === 'service_edit') {
+    const [idRaw, name, host, scheme, portRaw] = args;
+    const id = Number(idRaw), port = Number(portRaw), before = getService(id);
+    if (!Number.isInteger(id) || !name || !host || !['http','https'].includes(scheme) || !Number.isInteger(port) || port < 1 || port > 65535) return 'Usage: /service_edit id|name|host|scheme|port\nUse /services to find service ID. All fields are required.';
+    if (!before) return `Service #${id} not found. Use /services to list IDs and names.`;
+    const service = updateService(id, { name, host, scheme, port });
+    return `Service updated: #${id} ${before.name} -> ${service.name} (${service.webUrl}).`;
+  }
+  const deleteMatch = command.match(/^(device|service)_delete(_confirm)?$/);
+  if (!deleteMatch) return null;
+  const [, kind, confirming] = deleteMatch;
+  const id = Number(args[0]);
+  const item = kind === 'device' ? getDevice(id) : getService(id);
+  if (!Number.isInteger(id) || !item) return `${kind === 'device' ? 'Device' : 'Service'} #${Number.isInteger(id) ? id : '?'} not found. Use /${kind === 'device' ? 'devices' : 'services'} to list IDs and names.`;
+  const key = `${chatId}:${userId}:${kind}:${id}`;
+  if (!confirming) {
     const token = randomBytes(4).toString('hex').toUpperCase();
-    pendingDeviceDeletes.set(`${chatId}:${userId}:${id}`, { token, expiresAt:Date.now()+60_000 });
-    return `Delete #${id} ${device.name} (${device.host}) and its metrics, uptime history, and topology links? Confirm within 60 seconds:\n/device_delete_confirm ${id} ${token}`;
+    pendingDeletes.set(key, { token, expiresAt:Date.now()+60_000 });
+    return `Delete ${kind} #${id} ${item.name} (${item.host}) and its monitoring history? Confirm within 60 seconds:\n/${kind}_delete_confirm ${id} ${token}`;
   }
-  if (command === 'device_delete_confirm') {
-    const id = Number(args[0]);
-    const token = String(args[1] || '').toUpperCase();
-    const key = `${chatId}:${userId}:${id}`;
-    const pending = pendingDeviceDeletes.get(key);
-    if (!pending || pending.expiresAt < Date.now() || pending.token !== token) return 'Delete confirmation is invalid or expired.';
-    pendingDeviceDeletes.delete(key);
-    return deleteDevice(id) ? `Device #${id} deleted.` : 'Device not found.';
-  }
-  return null;
+  const token = String(args[1] || '').toUpperCase();
+  const pending = pendingDeletes.get(key);
+  if (!pending || pending.expiresAt < Date.now() || pending.token !== token) return `Delete confirmation for ${kind} #${id} ${item.name} is invalid or expired.`;
+  pendingDeletes.delete(key);
+  const deleted = kind === 'device' ? deleteDevice(id) : deleteService(id);
+  return deleted ? `${kind === 'device' ? 'Device' : 'Service'} #${id} ${item.name} deleted.` : `${kind === 'device' ? 'Device' : 'Service'} #${id} ${item.name} was already removed.`;
 }
+
+export const executeDeviceCommand = executeInventoryCommand;
 
 // Register the command list with Telegram so clients show a menu.
 export async function registerBotMenu(token) {
@@ -255,7 +278,7 @@ export function buildCommandReply(text) {
     const lines = items.map(it => {
       const up = map.get(it.id);
       const sym = up === undefined ? '❔' : up ? '✅' : '🔴';
-      return `${sym} ${it.name} (${it.host})`;
+      return `${sym} #${it.id} ${it.name} (${it.host})`;
     });
     return `${isDev ? '📡 Devices' : '🧩 Services'} (${items.length})\n${lines.join('\n')}`;
   }
@@ -280,7 +303,7 @@ export function buildCommandReply(text) {
   }
 
   if (cmd === 'help' || cmd === 'start') {
-    return `RouterDeck bot\n\n/devices — list monitored devices with status\n/services — list network services with status\n/online — everything currently up\n/offline — everything currently down\n/clients — live client counts per device\n/device_add name|host|type|role — add device\n/device_edit id|name|host|role — edit device\n/device_delete id — request confirmed deletion\n/help — this message`;
+    return `RouterDeck bot\n\nInventory\n/devices — device names, IDs, hosts and status\n/services — service names, IDs, hosts and status\n/online — everything currently up\n/offline — everything currently down\n/clients — live client counts per device\n\nAdd device\n/device_add name|host|type|role\nAll four fields are required. Separate fields with |.\nTypes and roles:\n• generic: router, access_point, switch, ip_camera\n• openwrt: client, access_point\n• mikrotik: client, host\nExample: /device_add Front camera|192.168.1.20|generic|ip_camera\nCredentials cannot be sent through Telegram. Add them later in RouterDeck web UI.\n\nEdit device\n/device_edit id|name|host|role\nAll fields are required. Find id with /devices.\nExample: /device_edit 12|Front camera|192.168.1.21|ip_camera\n\nDelete device\n/device_delete id\nBot states device name and asks for a one-time confirmation.\nExample: /device_delete 12\n\nAdd service\n/service_add name|host|type|scheme|port\nTypes: adguardhome, homeassistant, proxmox, synology, nginxproxymanager, casaos. Scheme: http or https. All fields required.\nExample: /service_add Home Assistant|192.168.1.10|homeassistant|http|8123\nAdd credentials later in RouterDeck web UI.\n\nEdit service\n/service_edit id|name|host|scheme|port\nFind id with /services. All fields required.\nExample: /service_edit 4|Home Assistant|192.168.1.11|http|8123\n\nDelete service\n/service_delete id\nBot states service name and asks for a one-time confirmation.\nExample: /service_delete 4\n\n/help — this message`;
   }
 
   if (cmd) return `Unknown command "/${cmd}". Try /help.`;
@@ -296,11 +319,11 @@ async function handleTelegramUpdate(update) {
   const recipients = getTelegramRecipients().filter(r => r.enabled);
   const authorized = recipients.some(r => String(r.chatId) === String(msg.chat.id)) || (!recipients.length && String(settings.chatId) === String(msg.chat.id));
   if (!authorized) return;
-  const mutation = /^\/device_(?:add|edit|delete|delete_confirm)(?:@\w+)?(?:\s|$)/i.test(msg.text);
+  const mutation = /^\/(?:device|service)_(?:add|edit|delete|delete_confirm)(?:@\w+)?(?:\s|$)/i.test(msg.text);
   let reply;
   if (mutation) {
     if (msg.chat.type !== 'private' || !msg.from?.id) return;
-    reply = await executeDeviceCommand({ chatId:String(msg.chat.id), userId:String(msg.from.id) }, msg.text);
+    reply = await executeInventoryCommand({ chatId:String(msg.chat.id), userId:String(msg.from.id) }, msg.text);
   } else {
     reply = buildCommandReply(msg.text);
   }

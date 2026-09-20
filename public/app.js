@@ -2900,6 +2900,7 @@ function setDialogMode(editing = false, kind = 'device') {
   if (entry) { entry.value = kind; entry.disabled = editing; }
   if (os) os.disabled = editing && kind === 'device';
   if (service) service.disabled = editing && kind === 'service';
+  if (editing && kind === 'device' && $('#ruijie-region')) $('#ruijie-region').value='';
 }
 function prepareAddDialog(kind = 'device') {
   const form = $('#device-form'); form.reset();
@@ -2909,6 +2910,7 @@ function prepareAddDialog(kind = 'device') {
   $('#os-type').value='openwrt'; $('#service-type').value='adguardhome';
   if ($('#openwrt-role')) $('#openwrt-role').value='client';
   if ($('#generic-role')) $('#generic-role').value='router';
+  if ($('#ruijie-region')) $('#ruijie-region').value='auto';
   setFormField('sshUsername','root'); setFormField('sshPort',22); setFormField('serviceSshUsername','root'); setFormField('serviceSshPort',22);
   const error=$('#device-form-error'); if(error)error.textContent='';
   syncFormFields();
@@ -2941,9 +2943,9 @@ function openEditDialog(kind, id) {
   if (!item) return;
   state.editTarget = { kind, id };
   setDialogMode(true, kind);
-  setFormField('entryKind',kind === 'device' && item.deviceRole === 'ip_camera' ? 'camera' : kind); setFormField('name',item.name); setFormField('host',item.host);
+  setFormField('entryKind',kind); setFormField('name',item.name); setFormField('host',item.host);
   if (kind === 'device') {
-    setFormField('osType',item.osType);
+    setFormField('osType',item.deviceRole === 'ip_camera' ? 'ip_camera' : item.osType);
     setFormField('restScheme',item.restScheme || 'https'); setFormField('restPort',item.restPort || '');
     setFormField('monitorInterface',item.monitorInterface || ''); setFormField('insecureTls',item.insecureTls);
     if (item.osType === 'mikrotik') setFormField('deviceRole',item.deviceRole || 'client');
@@ -3004,44 +3006,46 @@ function syncServiceFields() {
 
 function syncDeviceBrand() {
   const os=$('#os-type')?.value || 'openwrt'; const brand=$('#device-brand'); if(!brand)return;
-  const genericRole = $('#entry-kind')?.value === 'camera' ? 'ip_camera' : ($('#generic-role')?.value || 'router');
-  const detail=os==='mikrotik'?'RouterOS REST managed router or gateway':os==='generic'?`ICMP uptime-only ${genericRoleLabel(genericRole).toLowerCase()}`:os==='ruijie'?'Ruijie/Reyee Cloud-managed switch via pyruijie':($('#openwrt-role')?.value==='access_point'?'SSH / ubus access point':'SSH / ubus client/router');
-  const icon = os === 'generic' ? deviceIcon({ osType:'generic', deviceRole:genericRole }, 'form-os-logo') : osIcon(os,'form-os-logo');
-  brand.innerHTML=`${icon}<div><strong>${esc(osLabel(os))}</strong><span>${esc(detail)}</span></div>`;
+  const genericRole = os === 'ip_camera' ? 'ip_camera' : ($('#generic-role')?.value || 'router');
+  const detail=os==='mikrotik'?'RouterOS REST managed router or gateway':os==='generic'?`ICMP uptime-only ${genericRoleLabel(genericRole).toLowerCase()}`:os==='ip_camera'?'ICMP uptime-only IP camera':os==='ruijie'?'Ruijie/Reyee Cloud-managed switch via pyruijie':($('#openwrt-role')?.value==='access_point'?'SSH / ubus access point':'SSH / ubus client/router');
+  const icon = ['generic','ip_camera'].includes(os) ? deviceIcon({ osType:'generic', deviceRole:genericRole }, 'form-os-logo') : osIcon(os,'form-os-logo');
+  brand.innerHTML=`${icon}<div><strong>${esc(os === 'ip_camera' ? 'IP camera' : osLabel(os))}</strong><span>${esc(detail)}</span></div>`;
   refreshThemeAwareLogos();
 }
 
 function syncFormFields() {
   const kind=$('#entry-kind')?.value || 'device';
-  const cameraMode=kind==='camera';
-  const deviceMode=kind==='device'||cameraMode;
+  const deviceMode=kind==='device';
   $('#device-entry-fields')?.classList.toggle('hidden',!deviceMode);
   $('#service-entry-fields')?.classList.toggle('hidden',deviceMode);
   const nameInput=$('#device-form')?.querySelector('[name=name]');
   if(nameInput){const st=$('#service-type')?.value;nameInput.placeholder=deviceMode?'Living Room AP':(st==='homeassistant'?'Home Assistant':st==='proxmox'?'Proxmox VE':st==='synology'?'Synology DSM':st==='nginxproxymanager'?'Nginx Proxy Manager':st==='casaos'?'CasaOS':'AdGuard Home');}
   if(!deviceMode){ syncServiceFields(); return; }
-  if (cameraMode) $('#os-type').value='generic';
   const os = $('#os-type').value;
+  const cameraMode = os === 'ip_camera';
   syncDeviceBrand();
-  const generic = os === 'generic';
+  const generic = os === 'generic' || cameraMode;
   const hostOption = $('#mikrotik-role')?.querySelector('option[value="host"]');
   const existingHost = state.devices.find(d => d.osType === 'mikrotik' && d.deviceRole === 'host' && d.id !== state.editTarget?.id);
   if (hostOption) { hostOption.disabled = Boolean(existingHost); hostOption.textContent = existingHost ? `Host / gateway (${existingHost.name} already selected)` : 'Host / gateway'; }
   $('#ssh-fields').classList.toggle('hidden', generic || os === 'ruijie');
+  $('#os-type').disabled = Boolean(state.editTarget?.kind === 'device');
   $('#openwrt-role-fields')?.classList.toggle('hidden', os !== 'openwrt');
-  $('#generic-role-fields')?.classList.toggle('hidden', os !== 'generic' || cameraMode);
+  $('#generic-role-fields')?.classList.toggle('hidden', os !== 'generic');
   $('#camera-fields')?.classList.toggle('hidden', !cameraMode);
   $('#mikrotik-fields').classList.toggle('hidden', os !== 'mikrotik');
   $('#ruijie-fields')?.classList.toggle('hidden', os !== 'ruijie');
   if (os === 'ruijie') {
     const existingRuijie = state.devices.find(d => d.osType === 'ruijie');
+    const region=$('#ruijie-region'), customRegion=$('#ruijie-custom-region-row');
+    customRegion?.classList.toggle('hidden', region?.value !== 'custom');
     const reuseRow = $('#ruijie-reuse-row'), reuse = $('#ruijie-reuse-existing');
     if (reuseRow) reuseRow.classList.toggle('hidden', !existingRuijie);
     if (reuse && existingRuijie && !reuse.dataset.initialized) { reuse.checked = true; reuse.dataset.initialized = '1'; }
     if (reuse && !existingRuijie) reuse.checked = false;
     const usingExisting = Boolean(existingRuijie && reuse?.checked);
     $$('.ruijie-account-field input, .ruijie-account-field select').forEach(el => { el.disabled = usingExisting; });
-    const region = $('[name=ruijieBaseUrl]'); if (region) region.disabled = usingExisting;
+    const customRegionInput = $('[name=ruijieBaseUrl]'); if (customRegionInput) customRegionInput.disabled = usingExisting;
   }
   $('#connection-mode').innerHTML = os === 'mikrotik'
     ? '<option value="rest">RouterOS REST API</option>'
@@ -3054,6 +3058,7 @@ $('#service-scheme')?.addEventListener('change',e=>{ if($('#service-type')?.valu
 $('#openwrt-role')?.addEventListener('change', syncDeviceBrand);
 $('#generic-role')?.addEventListener('change', syncDeviceBrand);
 $('#ruijie-reuse-existing')?.addEventListener('change', syncFormFields);
+$('#ruijie-region')?.addEventListener('change', syncFormFields);
 $('#os-type').onchange = () => {
   const os = $('#os-type').value;
   const sshUser = document.querySelector('[name=sshUsername]');
@@ -3109,7 +3114,7 @@ $('#device-form').addEventListener('submit', async e => {
       await refreshServices();
     } else {
       const existingDevice = editing?.kind==='device' ? state.devices.find(x=>x.id===editing.id) : null;
-      const cameraMode = entryKind === 'camera' || existingDevice?.deviceRole === 'ip_camera';
+      const cameraMode = obj.osType === 'ip_camera' || existingDevice?.deviceRole === 'ip_camera';
       const osType = cameraMode ? 'generic' : (existingDevice?.osType || obj.osType);
       const payload = {
         name: obj.name, host: obj.host, osType,
@@ -3120,7 +3125,7 @@ $('#device-form').addEventListener('submit', async e => {
         insecureTls: f.has('insecureTls'),
         deviceRole: cameraMode ? 'ip_camera' : osType === 'mikrotik' ? (obj.deviceRole === 'host' ? 'host' : 'client') : osType === 'openwrt' ? (obj.openwrtRole === 'access_point' ? 'access_point' : 'client') : osType === 'generic' ? (['router','access_point','switch'].includes(obj.genericRole) ? obj.genericRole : 'router') : 'client',
         credentials: cameraMode ? (editing && !obj.rtspUrl ? {} : {rtspUrl:obj.rtspUrl||''}) : osType === 'generic' ? {} : osType === 'ruijie' ? {
-          ruijieAppId: obj.ruijieAppId || '', ruijieAppSecret: obj.ruijieAppSecret || '', ruijieSerialNumber: obj.ruijieSerialNumber || '', ruijieBaseUrl: obj.ruijieBaseUrl || 'auto', ruijieApiToken: obj.ruijieApiToken || '', ruijieReuseExisting: f.has('ruijieReuseExisting'),
+          ruijieAppId: obj.ruijieAppId || '', ruijieAppSecret: obj.ruijieAppSecret || '', ruijieSerialNumber: obj.ruijieSerialNumber || '', ruijieBaseUrl: obj.ruijieRegion === 'custom' ? obj.ruijieBaseUrl : obj.ruijieRegion, ruijieApiToken: obj.ruijieApiToken || '', ruijieReuseExisting: f.has('ruijieReuseExisting'),
         } : {
           sshUsername: obj.sshUsername || '', sshPassword: obj.sshPassword || '', sshPort: obj.sshPort ? Number(obj.sshPort) : (editing ? '' : 22),
           apiUsername: obj.apiUsername, apiPassword: obj.apiPassword,

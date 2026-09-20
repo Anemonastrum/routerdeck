@@ -47,25 +47,49 @@ test('botTimeLabel uses configured timezone for a fixed instant', () => {
   assert.match(botTimeLabel(new Date('2026-09-20T00:00:00Z')), /20 Sept? 2026, 07\.00\.00/);
 });
 
-test('Telegram device commands add and edit inventory', async () => {
-  const added = await tg.executeDeviceCommand({ chatId: '1001', userId: '2001' }, '/device_add Telegram router|192.0.2.19|generic|router');
+test('Telegram device commands state target names and required fields', async () => {
+  const added = await tg.executeInventoryCommand({ chatId: '1001', userId: '2001' }, '/device_add Telegram router|192.0.2.19|generic|router');
   const id = Number(added.match(/#(\d+)/)?.[1]);
   assert.ok(id);
+  assert.match(added, /Telegram router/);
   assert.equal(db.getDevice(id).name, 'Telegram router');
-  assert.match(await tg.executeDeviceCommand({ chatId: '1001', userId: '2001' }, `/device_edit ${id}|Edited router|192.0.2.21|switch`), /updated/i);
+  const edited = await tg.executeInventoryCommand({ chatId: '1001', userId: '2001' }, `/device_edit ${id}|Edited router|192.0.2.21|switch`);
+  assert.match(edited, /Telegram router/);
+  assert.match(edited, /Edited router/);
   assert.equal(db.getDevice(id).deviceRole, 'switch');
+  assert.match(await tg.executeInventoryCommand({ chatId: '1001', userId: '2001' }, '/device_add missing'), /name\|host\|type\|role/i);
+});
+
+test('Telegram service commands add edit and identify service names', async () => {
+  const added = await tg.executeInventoryCommand({ chatId: '1001', userId: '2001' }, '/service_add Lab service|192.0.2.30|casaos|http|80');
+  const id = Number(added.match(/#(\d+)/)?.[1]);
+  assert.ok(id);
+  assert.equal(db.getService(id).name, 'Lab service');
+  const edited = await tg.executeInventoryCommand({ chatId: '1001', userId: '2001' }, `/service_edit ${id}|Renamed service|192.0.2.31|https|443`);
+  assert.match(edited, /Lab service/);
+  assert.match(edited, /Renamed service/);
+  assert.equal(db.getService(id).port, 443);
+});
+
+test('Telegram inventory lists show IDs and help explains complete mutation input', () => {
+  const device = db.createDevice({ name: 'ID device', host: '192.0.2.40', osType: 'generic' });
+  const service = db.createService({ name: 'ID service', host: '192.0.2.41', serviceType: 'casaos' });
+  assert.match(tg.buildCommandReply('/devices'), new RegExp(`#${device.id} ID device`));
+  assert.match(tg.buildCommandReply('/services'), new RegExp(`#${service.id} ID service`));
+  const help = tg.buildCommandReply('/help');
+  for (const text of ['/device_add name|host|type|role', '/device_edit id|name|host|role', '/service_add name|host|type|scheme|port', '/service_edit id|name|host|scheme|port']) assert.match(help, new RegExp(text.replace(/[|/]/g, '\\$&')));
 });
 
 test('Telegram device delete requires matching confirmation', async () => {
   const device = db.createDevice({ name: 'Telegram delete target', host: '192.0.2.20', osType: 'generic' });
-  const request = await tg.executeDeviceCommand({ chatId: '1001', userId: '2001' }, `/device_delete ${device.id}`);
+  const request = await tg.executeInventoryCommand({ chatId: '1001', userId: '2001' }, `/device_delete ${device.id}`);
   assert.match(request, /confirm/i);
   assert.ok(db.getDevice(device.id));
   const token = request.match(/\/device_delete_confirm \d+ ([A-Z0-9]+)/)?.[1];
   assert.ok(token);
-  assert.match(await tg.executeDeviceCommand({ chatId: '1001', userId: '9999' }, `/device_delete_confirm ${device.id} ${token}`), /invalid|expired/i);
+  assert.match(await tg.executeInventoryCommand({ chatId: '1001', userId: '9999' }, `/device_delete_confirm ${device.id} ${token}`), /invalid|expired/i);
   assert.ok(db.getDevice(device.id));
-  assert.match(await tg.executeDeviceCommand({ chatId: '1001', userId: '2001' }, `/device_delete_confirm ${device.id} ${token}`), /deleted/i);
+  assert.match(await tg.executeInventoryCommand({ chatId: '1001', userId: '2001' }, `/device_delete_confirm ${device.id} ${token}`), /Telegram delete target.*deleted/i);
   assert.equal(db.getDevice(device.id), null);
 });
 
