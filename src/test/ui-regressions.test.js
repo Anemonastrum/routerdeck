@@ -13,6 +13,13 @@ test('IP camera is a network device type with stream URL field and player', () =
   assert.match(app, /\/api\/devices\/\$\{d\.id\}\/camera\/stream/);
 });
 
+test('Ruijie add device menu supports custom Cloud region with custom hostname/ip input', () => {
+  assert.match(html, /id="ruijie-region"[\s\S]*option value="custom">Custom IP \/ hostname<\/option>/);
+  assert.match(html, /id="ruijie-custom-region-row"[\s\S]*name="ruijieBaseUrl"/);
+  assert.match(app, /customRegion\?\.classList\.toggle\('hidden',\s*!isCustom\)/);
+  assert.match(app, /customRegionInput\.disabled = false/);
+});
+
 test('connection analytics renders exact source and destination endpoints', () => {
   assert.match(app, /connectionsTable\(data\.connections\|\|\[\]\)/);
 });

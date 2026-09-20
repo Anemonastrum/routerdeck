@@ -133,7 +133,11 @@ async function stableGatewayAnalytics(device, maxRows) {
 }
 
 function validateNewDevice(req, res) {
-  const { name, host, osType } = req.body || {};
+  let { name, host, osType, deviceRole } = req.body || {};
+  if (osType === 'ip_camera') {
+    osType = 'generic';
+    deviceRole = 'ip_camera';
+  }
   if (!name || !host || !['openwrt', 'mikrotik', 'generic', 'ruijie'].includes(osType)) {
     res.status(400).json({ error: 'name, host and valid osType are required' });
     return null;
@@ -141,6 +145,8 @@ function validateNewDevice(req, res) {
 
   const input = {
     ...req.body,
+    osType,
+    ...(deviceRole ? { deviceRole } : {}),
     connectionMode: osType === 'mikrotik' ? 'rest' : osType === 'generic' ? 'icmp' : osType === 'ruijie' ? 'cloud' : 'ssh',
   };
 
@@ -170,7 +176,7 @@ function validateNewDevice(req, res) {
     credentials = {
       ruijieAppId: existingCredentials.ruijieAppId,
       ruijieAppSecret: existingCredentials.ruijieAppSecret,
-      ruijieBaseUrl: existingCredentials.ruijieBaseUrl || 'auto',
+      ruijieBaseUrl: credentials.ruijieBaseUrl && credentials.ruijieBaseUrl !== 'auto' ? credentials.ruijieBaseUrl : (existingCredentials.ruijieBaseUrl || 'auto'),
       ruijieApiToken: existingCredentials.ruijieApiToken || '',
       ruijieSerialNumber: credentials.ruijieSerialNumber,
     };

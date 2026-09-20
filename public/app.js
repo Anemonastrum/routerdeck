@@ -2911,6 +2911,7 @@ function prepareAddDialog(kind = 'device') {
   if ($('#openwrt-role')) $('#openwrt-role').value='client';
   if ($('#generic-role')) $('#generic-role').value='router';
   if ($('#ruijie-region')) $('#ruijie-region').value='auto';
+  const rr=$('#ruijie-reuse-existing'); if(rr) delete rr.dataset.initialized;
   setFormField('sshUsername','root'); setFormField('sshPort',22); setFormField('serviceSshUsername','root'); setFormField('serviceSshPort',22);
   const error=$('#device-form-error'); if(error)error.textContent='';
   syncFormFields();
@@ -2952,7 +2953,7 @@ function openEditDialog(kind, id) {
     if (item.osType === 'openwrt') setFormField('openwrtRole',item.deviceRole === 'access_point' ? 'access_point' : 'client');
     if (item.osType === 'generic' && item.deviceRole !== 'ip_camera') setFormField('genericRole', ['router','access_point','switch'].includes(item.deviceRole) ? item.deviceRole : 'router');
     if (item.deviceRole === 'ip_camera') { const stream=form.elements.namedItem('rtspUrl'); if(stream){stream.value='';stream.placeholder=item.hasRtspStream?'Leave blank to keep current':'rtsp://camera/stream';} }
-    ['sshPassword','apiPassword','ruijieAppSecret','ruijieApiToken','sshPort'].forEach(n=>{const el=form.elements.namedItem(n);if(el){el.value='';el.placeholder='Leave blank to keep current';}});
+    ['sshPassword','apiPassword','ruijieAppSecret','ruijieApiToken','sshPort','ruijieBaseUrl'].forEach(n=>{const el=form.elements.namedItem(n);if(el){el.value='';el.placeholder='Leave blank to keep current';}});
     ['sshUsername','apiUsername','ruijieAppId','ruijieSerialNumber'].forEach(n=>{const el=form.elements.namedItem(n);if(el){el.value='';el.placeholder='Leave blank to keep current';}});
   } else {
     setFormField('serviceType',item.serviceType); setFormField('serviceScheme',item.scheme || 'http'); setFormField('servicePort',item.port || '');
@@ -3033,19 +3034,25 @@ function syncFormFields() {
   $('#openwrt-role-fields')?.classList.toggle('hidden', os !== 'openwrt');
   $('#generic-role-fields')?.classList.toggle('hidden', os !== 'generic');
   $('#camera-fields')?.classList.toggle('hidden', !cameraMode);
+  const rtspInput = $('[name=rtspUrl]'); if (rtspInput) rtspInput.required = cameraMode && !state.editTarget;
   $('#mikrotik-fields').classList.toggle('hidden', os !== 'mikrotik');
   $('#ruijie-fields')?.classList.toggle('hidden', os !== 'ruijie');
   if (os === 'ruijie') {
-    const existingRuijie = state.devices.find(d => d.osType === 'ruijie');
+    const existingRuijie = state.devices.find(d => d.osType === 'ruijie' && d.id !== state.editTarget?.id);
     const region=$('#ruijie-region'), customRegion=$('#ruijie-custom-region-row');
-    customRegion?.classList.toggle('hidden', region?.value !== 'custom');
+    const isCustom = region?.value === 'custom';
+    customRegion?.classList.toggle('hidden', !isCustom);
     const reuseRow = $('#ruijie-reuse-row'), reuse = $('#ruijie-reuse-existing');
     if (reuseRow) reuseRow.classList.toggle('hidden', !existingRuijie);
     if (reuse && existingRuijie && !reuse.dataset.initialized) { reuse.checked = true; reuse.dataset.initialized = '1'; }
     if (reuse && !existingRuijie) reuse.checked = false;
     const usingExisting = Boolean(existingRuijie && reuse?.checked);
     $$('.ruijie-account-field input, .ruijie-account-field select').forEach(el => { el.disabled = usingExisting; });
-    const customRegionInput = $('[name=ruijieBaseUrl]'); if (customRegionInput) customRegionInput.disabled = usingExisting;
+    const customRegionInput = $('[name=ruijieBaseUrl]');
+    if (customRegionInput) {
+      customRegionInput.disabled = false;
+      customRegionInput.required = isCustom && !state.editTarget;
+    }
   }
   $('#connection-mode').innerHTML = os === 'mikrotik'
     ? '<option value="rest">RouterOS REST API</option>'
@@ -3059,6 +3066,16 @@ $('#openwrt-role')?.addEventListener('change', syncDeviceBrand);
 $('#generic-role')?.addEventListener('change', syncDeviceBrand);
 $('#ruijie-reuse-existing')?.addEventListener('change', syncFormFields);
 $('#ruijie-region')?.addEventListener('change', syncFormFields);
+$('#ruijie-region')?.addEventListener('input', syncFormFields);
+$('[name=rtspUrl]')?.addEventListener('input', e => {
+  const hostInput = document.querySelector('#device-form [name=host]');
+  if (hostInput && !hostInput.value.trim()) {
+    try {
+      const u = new URL(e.target.value.trim());
+      if (u.hostname) hostInput.value = u.hostname;
+    } catch {}
+  }
+});
 $('#os-type').onchange = () => {
   const os = $('#os-type').value;
   const sshUser = document.querySelector('[name=sshUsername]');
@@ -3116,8 +3133,15 @@ $('#device-form').addEventListener('submit', async e => {
       const existingDevice = editing?.kind==='device' ? state.devices.find(x=>x.id===editing.id) : null;
       const cameraMode = obj.osType === 'ip_camera' || existingDevice?.deviceRole === 'ip_camera';
       const osType = cameraMode ? 'generic' : (existingDevice?.osType || obj.osType);
+      let host = obj.host;
+      if (cameraMode && !host && obj.rtspUrl) {
+        try {
+          const u = new URL(obj.rtspUrl);
+          if (u.hostname) host = u.hostname;
+        } catch {}
+      }
       const payload = {
-        name: obj.name, host: obj.host, osType,
+        name: obj.name, host, osType,
         connectionMode: osType === 'mikrotik' ? 'rest' : osType === 'generic' ? 'icmp' : osType === 'ruijie' ? 'cloud' : 'ssh',
         restScheme: obj.restScheme,
         restPort: obj.restPort ? Number(obj.restPort) : null,
@@ -3125,12 +3149,13 @@ $('#device-form').addEventListener('submit', async e => {
         insecureTls: f.has('insecureTls'),
         deviceRole: cameraMode ? 'ip_camera' : osType === 'mikrotik' ? (obj.deviceRole === 'host' ? 'host' : 'client') : osType === 'openwrt' ? (obj.openwrtRole === 'access_point' ? 'access_point' : 'client') : osType === 'generic' ? (['router','access_point','switch'].includes(obj.genericRole) ? obj.genericRole : 'router') : 'client',
         credentials: cameraMode ? (editing && !obj.rtspUrl ? {} : {rtspUrl:obj.rtspUrl||''}) : osType === 'generic' ? {} : osType === 'ruijie' ? {
-          ruijieAppId: obj.ruijieAppId || '', ruijieAppSecret: obj.ruijieAppSecret || '', ruijieSerialNumber: obj.ruijieSerialNumber || '', ruijieBaseUrl: obj.ruijieRegion === 'custom' ? obj.ruijieBaseUrl : obj.ruijieRegion, ruijieApiToken: obj.ruijieApiToken || '', ruijieReuseExisting: f.has('ruijieReuseExisting'),
+          ruijieAppId: obj.ruijieAppId || '', ruijieAppSecret: obj.ruijieAppSecret || '', ruijieSerialNumber: obj.ruijieSerialNumber || '', ruijieBaseUrl: obj.ruijieRegion === 'custom' ? (obj.ruijieBaseUrl || '').trim() : (obj.ruijieRegion || 'auto'), ruijieApiToken: obj.ruijieApiToken || '', ruijieReuseExisting: f.has('ruijieReuseExisting'),
         } : {
           sshUsername: obj.sshUsername || '', sshPassword: obj.sshPassword || '', sshPort: obj.sshPort ? Number(obj.sshPort) : (editing ? '' : 22),
           apiUsername: obj.apiUsername, apiPassword: obj.apiPassword,
         },
       };
+      if (!editing && osType === 'ruijie' && obj.ruijieRegion === 'custom' && !String(obj.ruijieBaseUrl||'').trim()) throw new Error('Custom Ruijie Cloud region hostname or IP is required');
       if (!editing && osType === 'ruijie' && !String(obj.ruijieSerialNumber||'').trim()) throw new Error('Ruijie/Reyee device serial number is required');
       if (!editing && osType === 'ruijie' && !f.has('ruijieReuseExisting') && (!String(obj.ruijieAppId||'').trim() || !String(obj.ruijieAppSecret||''))) throw new Error('Ruijie Cloud App ID and App Secret are required');
       if (editing?.kind === 'device') payload.credentials = Object.fromEntries(Object.entries(payload.credentials || {}).filter(([,v]) => v !== '' && v != null && v !== false));

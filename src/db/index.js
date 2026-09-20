@@ -62,15 +62,17 @@ function nextDeviceDisplayOrder() {
 }
 
 export function createDevice(input) {
-  const requestedRole = input.osType === 'mikrotik'
-    ? (input.deviceRole === 'host' ? 'host' : 'client')
-    : input.osType === 'openwrt'
-      ? (input.deviceRole === 'access_point' ? 'access_point' : 'client')
-      : input.osType === 'generic'
-        ? (['router','access_point','switch','ip_camera'].includes(input.deviceRole) ? input.deviceRole : 'router')
+  const osType = input.osType === 'ip_camera' ? 'generic' : input.osType;
+  const initialRole = input.osType === 'ip_camera' ? 'ip_camera' : input.deviceRole;
+  const requestedRole = osType === 'mikrotik'
+    ? (initialRole === 'host' ? 'host' : 'client')
+    : osType === 'openwrt'
+      ? (initialRole === 'access_point' ? 'access_point' : 'client')
+      : osType === 'generic'
+        ? (['router','access_point','switch','ip_camera'].includes(initialRole) ? initialRole : 'router')
         : 'client';
-  assertGatewayAvailable(input.osType === 'mikrotik' ? requestedRole : 'client');
-  const mode = input.osType === 'mikrotik' ? 'rest' : input.osType === 'generic' ? 'icmp' : input.osType === 'ruijie' ? 'cloud' : 'ssh';
+  assertGatewayAvailable(osType === 'mikrotik' ? requestedRole : 'client');
+  const mode = osType === 'mikrotik' ? 'rest' : osType === 'generic' ? 'icmp' : osType === 'ruijie' ? 'cloud' : 'ssh';
   const info = db.prepare(`
     INSERT INTO devices
     (name, host, os_type, connection_mode, rest_scheme, rest_port, monitor_interface, insecure_tls, device_role, detected_model, credentials_enc, display_order, created_at)
@@ -78,14 +80,14 @@ export function createDevice(input) {
   `).run({
     name: input.name,
     host: input.host,
-    osType: input.osType,
+    osType,
     connectionMode: mode,
     restScheme: input.restScheme || 'https',
     restPort: input.restPort || null,
     monitorInterface: input.monitorInterface || null,
     insecureTls: input.insecureTls ? 1 : 0,
     deviceRole: requestedRole,
-    credentialsEnc: encryptJson(input.osType === 'generic'
+    credentialsEnc: encryptJson(osType === 'generic'
       ? (requestedRole === 'ip_camera' ? { rtspUrl: String(input.credentials?.rtspUrl || '').trim() } : {})
       : (input.credentials || {})),
     displayOrder: Number.isFinite(Number(input.displayOrder)) ? Number(input.displayOrder) : nextDeviceDisplayOrder(),
