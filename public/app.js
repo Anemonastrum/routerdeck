@@ -1,5 +1,6 @@
 import { createApiClient, publicApi } from './js/http.js';
 import {
+  browserTimeZone,
   escapeHtml as esc,
   formatBitsPerSecond as fmtBitsPerSec,
   formatBytes as fmtBytes,
@@ -206,12 +207,19 @@ function showLogin() {
   if (window.matchMedia?.('(min-width: 761px)').matches) setTimeout(() => password?.focus(), 260);
   socket.disconnect();
 }
+async function syncAutomaticTimeZone(settings) {
+  if (settings?.timeZone !== 'auto') return settings;
+  const timeZone = browserTimeZone();
+  if (timeZone === 'auto') return settings;
+  return api('/api/app-settings', { method: 'PATCH', body: JSON.stringify({ timeZone }) }).catch(() => settings);
+}
+
 async function showApp({ fromLogin = false } = {}) {
   $('#public-status').classList.add('hidden');
   const login = $('#login');
   const app = $('#app');
   const loading = Promise.all([
-    api('/api/app-settings').catch(() => state.appSettings),
+    api('/api/app-settings').then(syncAutomaticTimeZone).catch(() => state.appSettings),
     refreshDevices(),
     refreshServices(),
   ]);

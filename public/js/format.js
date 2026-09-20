@@ -1,3 +1,8 @@
+export function browserTimeZone(intl = Intl) {
+  try { return intl.DateTimeFormat().resolvedOptions().timeZone || 'auto'; }
+  catch { return 'auto'; }
+}
+
 export function escapeHtml(value = '') {
   return String(value).replace(/[&<>"']/g, char => ({
     '&': '&amp;',
