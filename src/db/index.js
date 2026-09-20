@@ -24,6 +24,7 @@ function rowToDevice(row, includeSecrets = false) {
           ? (['router','access_point','switch','ip_camera'].includes(row.device_role) ? row.device_role : 'router')
           : 'client',
     detectedModel: row.detected_model || '',
+    hasRtspStream: row.os_type === 'generic' && row.device_role === 'ip_camera' && Boolean(decryptJson(row.credentials_enc)?.rtspUrl),
     displayOrder: Number(row.display_order || 0),
     createdAt: row.created_at,
   };
@@ -84,7 +85,9 @@ export function createDevice(input) {
     monitorInterface: input.monitorInterface || null,
     insecureTls: input.insecureTls ? 1 : 0,
     deviceRole: requestedRole,
-    credentialsEnc: encryptJson(input.osType === 'generic' ? {} : (input.credentials || {})),
+    credentialsEnc: encryptJson(input.osType === 'generic'
+      ? (requestedRole === 'ip_camera' ? { rtspUrl: String(input.credentials?.rtspUrl || '').trim() } : {})
+      : (input.credentials || {})),
     displayOrder: Number.isFinite(Number(input.displayOrder)) ? Number(input.displayOrder) : nextDeviceDisplayOrder(),
     createdAt: Date.now(),
   });
@@ -96,7 +99,6 @@ export function updateDevice(id, input) {
   if (!existing) return null;
   const osType = input.osType ?? existing.osType;
   const connectionMode = osType === 'mikrotik' ? 'rest' : osType === 'generic' ? 'icmp' : osType === 'ruijie' ? 'cloud' : 'ssh';
-  const credentials = osType === 'generic' ? {} : { ...existing.credentials, ...(input.credentials || {}) };
   const requestedRole = osType === 'mikrotik'
     ? ((input.deviceRole ?? existing.deviceRole) === 'host' ? 'host' : 'client')
     : osType === 'openwrt'
@@ -104,6 +106,9 @@ export function updateDevice(id, input) {
       : osType === 'generic'
         ? (['router','access_point','switch','ip_camera'].includes(input.deviceRole ?? existing.deviceRole) ? (input.deviceRole ?? existing.deviceRole) : 'router')
         : 'client';
+  const credentials = osType === 'generic'
+    ? (requestedRole === 'ip_camera' ? { rtspUrl: String(input.credentials?.rtspUrl ?? existing.credentials?.rtspUrl ?? '').trim() } : {})
+    : { ...existing.credentials, ...(input.credentials || {}) };
   assertGatewayAvailable(osType === 'mikrotik' ? requestedRole : 'client', id);
   db.prepare(`
     UPDATE devices SET

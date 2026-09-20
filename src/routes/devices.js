@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { spawn } from 'node:child_process';
 import {
   createDevice,
   deleteDevice,
@@ -39,6 +40,11 @@ import { sendUpstreamError, upstreamError } from '../etc/http-errors.js';
 
 const gatewayAnalyticsInFlight = new Map();
 const gatewayAnalyticsTtlMs = Math.max(5000, Number(process.env.GATEWAY_ANALYTICS_TTL_MS || 15000));
+
+function validRtspUrl(value) {
+  try { return ['rtsp:', 'rtsps:'].includes(new URL(String(value || '')).protocol); }
+  catch { return false; }
+}
 
 function requireMikroTikDevice(req, res) {
   const device = getDevice(Number(req.params.id), true);
@@ -137,6 +143,11 @@ function validateNewDevice(req, res) {
     connectionMode: osType === 'mikrotik' ? 'rest' : osType === 'generic' ? 'icmp' : osType === 'ruijie' ? 'cloud' : 'ssh',
   };
 
+  if (osType === 'generic' && input.deviceRole === 'ip_camera' && !validRtspUrl(input.credentials?.rtspUrl)) {
+    res.status(400).json({ error: 'IP camera requires a valid rtsp:// or rtsps:// stream URL' });
+    return null;
+  }
+
   if (osType !== 'ruijie') return input;
 
   let credentials = { ...(req.body?.credentials || {}) };
@@ -210,12 +221,34 @@ export function createDevicesRouter() {
 
   router.patch('/devices/:id', (req, res) => {
     try {
+      const existing = getDevice(Number(req.params.id), true);
+      const role = req.body?.deviceRole ?? existing?.deviceRole;
+      const rtspUrl = req.body?.credentials?.rtspUrl ?? existing?.credentials?.rtspUrl;
+      if (existing?.osType === 'generic' && role === 'ip_camera' && !validRtspUrl(rtspUrl)) {
+        return res.status(400).json({ error: 'IP camera requires a valid rtsp:// or rtsps:// stream URL' });
+      }
       const device = updateDevice(Number(req.params.id), req.body || {});
       if (!device) return res.status(404).json({ error: 'Not found' });
       return res.json(device);
     } catch (error) {
       return res.status(error.code === 'GATEWAY_EXISTS' ? 409 : 400).json({ error: error.message });
     }
+  });
+
+  router.get('/devices/:id/camera/stream', (req, res) => {
+    const device = getDevice(Number(req.params.id), true);
+    if (!device || device.osType !== 'generic' || device.deviceRole !== 'ip_camera') return res.status(404).json({ error: 'IP camera not found' });
+    const rtspUrl = device.credentials?.rtspUrl;
+    if (!validRtspUrl(rtspUrl)) return res.status(400).json({ error: 'Camera RTSP stream is not configured' });
+    res.set({ 'Content-Type': 'video/mp4', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+    const ffmpeg = spawn('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-rtsp_transport', 'tcp', '-i', rtspUrl, '-an', '-c:v', 'copy', '-movflags', 'frag_keyframe+empty_moov+default_base_moof', '-f', 'mp4', 'pipe:1'], { stdio: ['ignore', 'pipe', 'pipe'] });
+    let wroteData = false;
+    ffmpeg.stdout.on('data', chunk => { wroteData = true; if (!res.write(chunk)) ffmpeg.stdout.pause(); });
+    res.on('drain', () => ffmpeg.stdout.resume());
+    ffmpeg.stderr.on('data', () => {});
+    ffmpeg.on('error', error => { if (!res.headersSent) res.status(502).json({ error: error.code === 'ENOENT' ? 'Camera streaming requires ffmpeg' : 'Camera stream failed' }); else res.destroy(); });
+    ffmpeg.on('close', () => { if (!res.writableEnded) wroteData ? res.end() : res.destroy(); });
+    req.on('close', () => { if (!ffmpeg.killed) ffmpeg.kill('SIGTERM'); });
   });
 
   router.delete('/devices/:id', (req, res) => {

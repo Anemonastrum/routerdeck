@@ -47,6 +47,28 @@ test('botTimeLabel uses configured timezone for a fixed instant', () => {
   assert.match(botTimeLabel(new Date('2026-09-20T00:00:00Z')), /20 Sept? 2026, 07\.00\.00/);
 });
 
+test('Telegram device commands add and edit inventory', async () => {
+  const added = await tg.executeDeviceCommand({ chatId: '1001', userId: '2001' }, '/device_add Telegram router|192.0.2.19|generic|router');
+  const id = Number(added.match(/#(\d+)/)?.[1]);
+  assert.ok(id);
+  assert.equal(db.getDevice(id).name, 'Telegram router');
+  assert.match(await tg.executeDeviceCommand({ chatId: '1001', userId: '2001' }, `/device_edit ${id}|Edited router|192.0.2.21|switch`), /updated/i);
+  assert.equal(db.getDevice(id).deviceRole, 'switch');
+});
+
+test('Telegram device delete requires matching confirmation', async () => {
+  const device = db.createDevice({ name: 'Telegram delete target', host: '192.0.2.20', osType: 'generic' });
+  const request = await tg.executeDeviceCommand({ chatId: '1001', userId: '2001' }, `/device_delete ${device.id}`);
+  assert.match(request, /confirm/i);
+  assert.ok(db.getDevice(device.id));
+  const token = request.match(/\/device_delete_confirm \d+ ([A-Z0-9]+)/)?.[1];
+  assert.ok(token);
+  assert.match(await tg.executeDeviceCommand({ chatId: '1001', userId: '9999' }, `/device_delete_confirm ${device.id} ${token}`), /invalid|expired/i);
+  assert.ok(db.getDevice(device.id));
+  assert.match(await tg.executeDeviceCommand({ chatId: '1001', userId: '2001' }, `/device_delete_confirm ${device.id} ${token}`), /deleted/i);
+  assert.equal(db.getDevice(device.id), null);
+});
+
 test('sendTelegram requires token and chatId', async () => {
   const missing = await sendTelegram({ token: '', chatId: '1', text: 'x' });
   assert.equal(missing.ok, false);

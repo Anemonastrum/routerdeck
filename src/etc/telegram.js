@@ -10,7 +10,8 @@
 // never exposed through the API. Notifications are fully disabled until the
 // user enables them in Settings -> Telegram notifications.
 
-import { getAppSettings, getTelegramBotToken, getTelegramSettings, getTelegramRecipients, latestUptimeAll, latestServiceUptimeAll, latestMetric, listDevices, listServices } from '../db/index.js';
+import { randomBytes } from 'node:crypto';
+import { createDevice, deleteDevice, getAppSettings, getDevice, getTelegramBotToken, getTelegramSettings, getTelegramRecipients, latestUptimeAll, latestServiceUptimeAll, latestMetric, listDevices, listServices, updateDevice } from '../db/index.js';
 
 const lastStates = new Map();  // `${kind}:${id}` -> Boolean(ok)
 const downSince = new Map();   // `${kind}:${id}` -> ts when the DOWN transition happened
@@ -171,6 +172,9 @@ const COMMANDS = [
   { command: 'online', description: 'Show everything currently online' },
   { command: 'offline', description: 'Show everything currently unreachable' },
   { command: 'clients', description: 'Live client counts per device' },
+  { command: 'device_add', description: 'Add device: name|host|type|role' },
+  { command: 'device_edit', description: 'Edit device: id|name|host|role' },
+  { command: 'device_delete', description: 'Request confirmed device deletion' },
   { command: 'help', description: 'Show available commands' },
 ];
 
@@ -178,6 +182,48 @@ let botTimer = null;
 let botPolling = false;
 let botPollOffset = 0;
 let botMenuToken = null;
+const pendingDeviceDeletes = new Map();
+
+function commandParts(text = '') {
+  const [head = '', ...rest] = String(text).trim().split(/\s+/);
+  const tail = rest.join(' ');
+  return { command: head.replace(/^\/+/, '').split('@')[0].toLowerCase(), args: (tail.includes('|') ? tail.split('|') : rest).map(x => x.trim()) };
+}
+
+export async function executeDeviceCommand({ chatId, userId }, text) {
+  const { command, args } = commandParts(text);
+  if (command === 'device_add') {
+    const [name, host, type = 'generic', role = 'router'] = args;
+    if (!name || !host || !['generic','openwrt','mikrotik'].includes(type)) return 'Usage: /device_add name|host|generic|router';
+    const device = createDevice({ name, host, osType:type, deviceRole:role });
+    return `Device added: #${device.id} ${device.name} (${device.host}). Add credentials in RouterDeck web UI when required.`;
+  }
+  if (command === 'device_edit') {
+    const [idRaw, name, host, role] = args;
+    const id = Number(idRaw);
+    if (!Number.isInteger(id) || !name || !host) return 'Usage: /device_edit id|name|host|role';
+    const device = updateDevice(id, { name, host, ...(role ? { deviceRole:role } : {}) });
+    return device ? `Device updated: #${device.id} ${device.name} (${device.host}).` : 'Device not found.';
+  }
+  if (command === 'device_delete') {
+    const id = Number(args[0]);
+    const device = getDevice(id);
+    if (!device) return 'Device not found.';
+    const token = randomBytes(4).toString('hex').toUpperCase();
+    pendingDeviceDeletes.set(`${chatId}:${userId}:${id}`, { token, expiresAt:Date.now()+60_000 });
+    return `Delete #${id} ${device.name} (${device.host}) and its metrics, uptime history, and topology links? Confirm within 60 seconds:\n/device_delete_confirm ${id} ${token}`;
+  }
+  if (command === 'device_delete_confirm') {
+    const id = Number(args[0]);
+    const token = String(args[1] || '').toUpperCase();
+    const key = `${chatId}:${userId}:${id}`;
+    const pending = pendingDeviceDeletes.get(key);
+    if (!pending || pending.expiresAt < Date.now() || pending.token !== token) return 'Delete confirmation is invalid or expired.';
+    pendingDeviceDeletes.delete(key);
+    return deleteDevice(id) ? `Device #${id} deleted.` : 'Device not found.';
+  }
+  return null;
+}
 
 // Register the command list with Telegram so clients show a menu.
 export async function registerBotMenu(token) {
@@ -234,7 +280,7 @@ export function buildCommandReply(text) {
   }
 
   if (cmd === 'help' || cmd === 'start') {
-    return `RouterDeck bot\n\n/devices — list monitored devices with status\n/services — list network services with status\n/online — everything currently up\n/offline — everything currently down\n/clients — live client counts per device\n/help — this message`;
+    return `RouterDeck bot\n\n/devices — list monitored devices with status\n/services — list network services with status\n/online — everything currently up\n/offline — everything currently down\n/clients — live client counts per device\n/device_add name|host|type|role — add device\n/device_edit id|name|host|role — edit device\n/device_delete id — request confirmed deletion\n/help — this message`;
   }
 
   if (cmd) return `Unknown command "/${cmd}". Try /help.`;
@@ -242,15 +288,25 @@ export function buildCommandReply(text) {
 }
 
 async function handleTelegramUpdate(update) {
-  const msg = update.message || update.channel_post || update.edited_message;
+  const msg = update.message;
   if (!msg || !msg.chat || typeof msg.text !== 'string' || !msg.text.trim().startsWith('/')) return;
-  const reply = buildCommandReply(msg.text);
-  if (reply == null) return;
   const settings = getTelegramSettings();
   const token = getTelegramBotToken();
   if (!settings.enabled || !token) return;
+  const recipients = getTelegramRecipients().filter(r => r.enabled);
+  const authorized = recipients.some(r => String(r.chatId) === String(msg.chat.id)) || (!recipients.length && String(settings.chatId) === String(msg.chat.id));
+  if (!authorized) return;
+  const mutation = /^\/device_(?:add|edit|delete|delete_confirm)(?:@\w+)?(?:\s|$)/i.test(msg.text);
+  let reply;
+  if (mutation) {
+    if (msg.chat.type !== 'private' || !msg.from?.id) return;
+    reply = await executeDeviceCommand({ chatId:String(msg.chat.id), userId:String(msg.from.id) }, msg.text);
+  } else {
+    reply = buildCommandReply(msg.text);
+  }
+  if (reply == null) return;
   const sent = await sendTelegram({ token, chatId: msg.chat.id, text: reply });
-  if (!sent.ok) console.error(`[telegram] command ${msg.text.trim()} -> ${msg.chat.id}: ${sent.error}`);
+  if (!sent.ok) console.error(`[telegram] command -> ${msg.chat.id}: ${sent.error}`);
 }
 
 async function pollTelegramOnce() {

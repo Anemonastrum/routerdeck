@@ -1664,6 +1664,7 @@ function renderConnectionAnalytics(data) {
     <div class="analytics-grid"><div class="card"><div class="section-head compact"><div><h3>Top sources</h3><p>By active connection count</p></div></div>${miniRankList(data.topSources,'source')}</div><div class="card"><div class="section-head compact"><div><h3>Top destinations</h3><p>By active connection count</p></div></div>${miniRankList(data.topDestinations,'destination')}</div></div>
     <div class="analytics-grid"><div class="card"><div class="section-head compact"><div><h3>Top countries</h3><p>Protocol mix across active sessions</p></div></div>${countriesList(data.topCountries||[])}${data.geo?.available===false?`<div class="geo-note">GeoIP unavailable: ${esc(data.geo.reason||'geoip-lite could not be loaded')}</div>`:''}</div><div class="card"><div class="section-head compact"><div><h3>Top destination ports</h3><p>Most common active services</p></div></div><div class="port-list">${(data.topPorts||[]).map(x=>`<div><span class="mono">${esc(x.port)}</span><b>${x.connections}</b></div>`).join('')||'<div class="empty compact-empty">No port data.</div>'}</div></div></div>
     <div class="card"><div class="section-head compact"><div><h3>Connection flow</h3><p>Top source → destination groups</p></div></div>${connectionFlow(data.flows||[])}</div>
+    <div class="card"><div class="section-head compact"><div><h3>Active connections</h3><p>Exact source and destination IP addresses and ports</p></div></div>${connectionsTable(data.connections||[])}</div>
   </div>`;
 }
 
@@ -2679,6 +2680,7 @@ async function renderGenericDevice(showSkeleton = true) {
       <div class="card"><div class="stat-label">24h uptime</div><div class="stat-value">${pct == null ? '—' : `${pct.toFixed(2)}%`}</div></div>
       <div class="card"><div class="stat-label">Monitor</div><div class="stat-value smaller">ICMP</div></div>
     </div>
+    ${d.deviceRole === 'ip_camera' ? `<div class="card camera-stream-card"><div class="section-head compact"><div><h2>Live camera</h2><p>Authenticated RTSP relay</p></div></div>${d.hasRtspStream ? `<video class="camera-stream-player" src="/api/devices/${d.id}/camera/stream" controls autoplay muted playsinline></video>` : '<div class="empty">Edit camera and add RTSP stream URL.</div>'}</div>` : ''}
     <div class="overview-grid generic-overview">
       <div class="card info-card"><div class="section-head compact"><div class="section-title-with-logo">${deviceIcon(d, 'detail-os-logo')}<div><h2>Monitor information</h2><p>Uptime-only target</p></div></div></div><div class="info-grid">
         ${infoItem('Name', d.name)}${infoItem('IP / hostname', d.host, true)}${infoItem('Type', genericRoleLabel(d.deviceRole))}${infoItem('Check method', 'ICMP ping')}
@@ -2939,14 +2941,15 @@ function openEditDialog(kind, id) {
   if (!item) return;
   state.editTarget = { kind, id };
   setDialogMode(true, kind);
-  setFormField('entryKind',kind); setFormField('name',item.name); setFormField('host',item.host);
+  setFormField('entryKind',kind === 'device' && item.deviceRole === 'ip_camera' ? 'camera' : kind); setFormField('name',item.name); setFormField('host',item.host);
   if (kind === 'device') {
     setFormField('osType',item.osType);
     setFormField('restScheme',item.restScheme || 'https'); setFormField('restPort',item.restPort || '');
     setFormField('monitorInterface',item.monitorInterface || ''); setFormField('insecureTls',item.insecureTls);
     if (item.osType === 'mikrotik') setFormField('deviceRole',item.deviceRole || 'client');
     if (item.osType === 'openwrt') setFormField('openwrtRole',item.deviceRole === 'access_point' ? 'access_point' : 'client');
-    if (item.osType === 'generic') setFormField('genericRole', ['router','access_point','switch','ip_camera'].includes(item.deviceRole) ? item.deviceRole : 'router');
+    if (item.osType === 'generic' && item.deviceRole !== 'ip_camera') setFormField('genericRole', ['router','access_point','switch'].includes(item.deviceRole) ? item.deviceRole : 'router');
+    if (item.deviceRole === 'ip_camera') { const stream=form.elements.namedItem('rtspUrl'); if(stream){stream.value='';stream.placeholder=item.hasRtspStream?'Leave blank to keep current':'rtsp://camera/stream';} }
     ['sshPassword','apiPassword','ruijieAppSecret','ruijieApiToken','sshPort'].forEach(n=>{const el=form.elements.namedItem(n);if(el){el.value='';el.placeholder='Leave blank to keep current';}});
     ['sshUsername','apiUsername','ruijieAppId','ruijieSerialNumber'].forEach(n=>{const el=form.elements.namedItem(n);if(el){el.value='';el.placeholder='Leave blank to keep current';}});
   } else {
@@ -3001,7 +3004,7 @@ function syncServiceFields() {
 
 function syncDeviceBrand() {
   const os=$('#os-type')?.value || 'openwrt'; const brand=$('#device-brand'); if(!brand)return;
-  const genericRole = $('#generic-role')?.value || 'router';
+  const genericRole = $('#entry-kind')?.value === 'camera' ? 'ip_camera' : ($('#generic-role')?.value || 'router');
   const detail=os==='mikrotik'?'RouterOS REST managed router or gateway':os==='generic'?`ICMP uptime-only ${genericRoleLabel(genericRole).toLowerCase()}`:os==='ruijie'?'Ruijie/Reyee Cloud-managed switch via pyruijie':($('#openwrt-role')?.value==='access_point'?'SSH / ubus access point':'SSH / ubus client/router');
   const icon = os === 'generic' ? deviceIcon({ osType:'generic', deviceRole:genericRole }, 'form-os-logo') : osIcon(os,'form-os-logo');
   brand.innerHTML=`${icon}<div><strong>${esc(osLabel(os))}</strong><span>${esc(detail)}</span></div>`;
@@ -3010,12 +3013,14 @@ function syncDeviceBrand() {
 
 function syncFormFields() {
   const kind=$('#entry-kind')?.value || 'device';
-  const deviceMode=kind==='device';
+  const cameraMode=kind==='camera';
+  const deviceMode=kind==='device'||cameraMode;
   $('#device-entry-fields')?.classList.toggle('hidden',!deviceMode);
   $('#service-entry-fields')?.classList.toggle('hidden',deviceMode);
   const nameInput=$('#device-form')?.querySelector('[name=name]');
   if(nameInput){const st=$('#service-type')?.value;nameInput.placeholder=deviceMode?'Living Room AP':(st==='homeassistant'?'Home Assistant':st==='proxmox'?'Proxmox VE':st==='synology'?'Synology DSM':st==='nginxproxymanager'?'Nginx Proxy Manager':st==='casaos'?'CasaOS':'AdGuard Home');}
   if(!deviceMode){ syncServiceFields(); return; }
+  if (cameraMode) $('#os-type').value='generic';
   const os = $('#os-type').value;
   syncDeviceBrand();
   const generic = os === 'generic';
@@ -3024,7 +3029,8 @@ function syncFormFields() {
   if (hostOption) { hostOption.disabled = Boolean(existingHost); hostOption.textContent = existingHost ? `Host / gateway (${existingHost.name} already selected)` : 'Host / gateway'; }
   $('#ssh-fields').classList.toggle('hidden', generic || os === 'ruijie');
   $('#openwrt-role-fields')?.classList.toggle('hidden', os !== 'openwrt');
-  $('#generic-role-fields')?.classList.toggle('hidden', os !== 'generic');
+  $('#generic-role-fields')?.classList.toggle('hidden', os !== 'generic' || cameraMode);
+  $('#camera-fields')?.classList.toggle('hidden', !cameraMode);
   $('#mikrotik-fields').classList.toggle('hidden', os !== 'mikrotik');
   $('#ruijie-fields')?.classList.toggle('hidden', os !== 'ruijie');
   if (os === 'ruijie') {
@@ -3103,7 +3109,8 @@ $('#device-form').addEventListener('submit', async e => {
       await refreshServices();
     } else {
       const existingDevice = editing?.kind==='device' ? state.devices.find(x=>x.id===editing.id) : null;
-      const osType = existingDevice?.osType || obj.osType;
+      const cameraMode = entryKind === 'camera' || existingDevice?.deviceRole === 'ip_camera';
+      const osType = cameraMode ? 'generic' : (existingDevice?.osType || obj.osType);
       const payload = {
         name: obj.name, host: obj.host, osType,
         connectionMode: osType === 'mikrotik' ? 'rest' : osType === 'generic' ? 'icmp' : osType === 'ruijie' ? 'cloud' : 'ssh',
@@ -3111,8 +3118,8 @@ $('#device-form').addEventListener('submit', async e => {
         restPort: obj.restPort ? Number(obj.restPort) : null,
         monitorInterface: ['generic','ruijie'].includes(osType) ? null : (obj.monitorInterface || null),
         insecureTls: f.has('insecureTls'),
-        deviceRole: osType === 'mikrotik' ? (obj.deviceRole === 'host' ? 'host' : 'client') : osType === 'openwrt' ? (obj.openwrtRole === 'access_point' ? 'access_point' : 'client') : osType === 'generic' ? (['router','access_point','switch','ip_camera'].includes(obj.genericRole) ? obj.genericRole : 'router') : 'client',
-        credentials: osType === 'generic' ? {} : osType === 'ruijie' ? {
+        deviceRole: cameraMode ? 'ip_camera' : osType === 'mikrotik' ? (obj.deviceRole === 'host' ? 'host' : 'client') : osType === 'openwrt' ? (obj.openwrtRole === 'access_point' ? 'access_point' : 'client') : osType === 'generic' ? (['router','access_point','switch'].includes(obj.genericRole) ? obj.genericRole : 'router') : 'client',
+        credentials: cameraMode ? (editing && !obj.rtspUrl ? {} : {rtspUrl:obj.rtspUrl||''}) : osType === 'generic' ? {} : osType === 'ruijie' ? {
           ruijieAppId: obj.ruijieAppId || '', ruijieAppSecret: obj.ruijieAppSecret || '', ruijieSerialNumber: obj.ruijieSerialNumber || '', ruijieBaseUrl: obj.ruijieBaseUrl || 'auto', ruijieApiToken: obj.ruijieApiToken || '', ruijieReuseExisting: f.has('ruijieReuseExisting'),
         } : {
           sshUsername: obj.sshUsername || '', sshPassword: obj.sshPassword || '', sshPort: obj.sshPort ? Number(obj.sshPort) : (editing ? '' : 22),

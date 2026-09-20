@@ -33,6 +33,12 @@ test('createDevice maps roles and connection modes per OS type', () => {
   assert.equal(generic.deviceRole, 'router'); // default for generic
   assert.equal(generic.connectionMode, 'icmp');
 
+  const camera = db.createDevice({ name: 'Camera', host: '10.0.0.4', osType: 'generic', deviceRole: 'ip_camera', credentials: { rtspUrl: 'rtsp://camera/live' } });
+  assert.equal(camera.deviceRole, 'ip_camera');
+  assert.equal(camera.hasRtspStream, true);
+  assert.equal(camera.rtspUrl, undefined);
+  assert.equal(db.getDevice(camera.id, true).credentials.rtspUrl, 'rtsp://camera/live');
+
   const ruijie = db.createDevice({ name: 'Switch', host: 'cloud.example', osType: 'ruijie' });
   assert.equal(ruijie.connectionMode, 'cloud');
 

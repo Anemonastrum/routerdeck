@@ -100,7 +100,7 @@
     <form id="device-form">
       <div class="dialog-head"><div><h2>Add to RouterDeck</h2><p>Add a network device or a managed network service.</p></div><button type="button" id="close-dialog" class="icon-btn" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18 18 6M6 6l12 12"/></svg></button></div>
       <div class="grid2 add-base-fields">
-        <label class="span2">Add<select name="entryKind" id="entry-kind"><option value="device">Network device</option><option value="service">Network service</option></select></label>
+        <label class="span2">Add<select name="entryKind" id="entry-kind"><option value="device">Network device</option><option value="camera">IP camera</option><option value="service">Network service</option></select></label>
         <label>Name<input name="name" required placeholder="Living Room AP" /></label>
         <label>IP / Hostname<input name="host" required placeholder="10.10.10.2" /></label>
       </div>
@@ -115,7 +115,11 @@
           <label class="span2">OpenWrt role<select name="openwrtRole" id="openwrt-role"><option value="client">Client</option><option value="access_point">Access point</option></select></label>
         </div>
         <div id="generic-role-fields" class="grid2 hidden">
-          <label class="span2">Generic device type<select name="genericRole" id="generic-role"><option value="router">Router</option><option value="access_point">Access point</option><option value="switch">Switch</option><option value="ip_camera">IP camera</option></select></label>
+          <label class="span2">Generic device type<select name="genericRole" id="generic-role"><option value="router">Router</option><option value="access_point">Access point</option><option value="switch">Switch</option></select></label>
+        </div>
+        <div id="camera-fields" class="grid2 hidden">
+          <label class="span2">RTSP stream URL<input name="rtspUrl" autocomplete="off" placeholder="rtsp://user:password@camera.local:554/stream" /></label>
+          <div class="span2 form-hint">Stored encrypted. RouterDeck relays video through authenticated web session; RTSP credentials never enter page URL.</div>
         </div>
         <div id="ssh-fields" class="grid2">
           <label>SSH username<input name="sshUsername" value="root" /></label>
