@@ -68,7 +68,7 @@ function formatDowntime(ms) {
 // the system default. The first alert logs the resolved zone so a mismatch
 // is diagnosable at a glance.
 let loggedTsFormat = false;
-function botTimeLabel() {
+export function botTimeLabel(now = new Date()) {
   const appSettings = getAppSettings();
   const hour12 = appSettings?.clockFormat === '12h';
   let zone;
@@ -92,11 +92,11 @@ function botTimeLabel() {
   }
   const withZone = zone ? { timeZone: zone } : {};
   try {
-    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12, ...withZone }).replace(/:/g, '.');
-    const date = new Date().toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric', ...withZone });
+    const time = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12, ...withZone }).replace(/:/g, '.');
+    const date = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', ...withZone });
     return `${date}, ${time}`;
   } catch {
-    return new Date().toLocaleString();
+    return now.toLocaleString('en-GB');
   }
 }
 

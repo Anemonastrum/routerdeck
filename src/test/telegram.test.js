@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 
 const db = await import('../db/index.js');
 const tg = await import('../etc/telegram.js');
-const { escHtml, sendTelegram, maybeNotify } = tg;
+const { escHtml, sendTelegram, maybeNotify, botTimeLabel } = tg;
 
 const realFetch = globalThis.fetch;
 let fetchCalls = [];
@@ -40,6 +40,11 @@ test('escHtml escapes the four HTML metacharacters', () => {
   assert.equal(escHtml('plain text'), 'plain text');
   assert.equal(escHtml(undefined), '');
   assert.equal(escHtml(null), '');
+});
+
+test('botTimeLabel uses configured timezone for a fixed instant', () => {
+  db.updateAppSettings({ clockFormat: '24h', timeZone: 'Asia/Jakarta' });
+  assert.match(botTimeLabel(new Date('2026-09-20T00:00:00Z')), /20 Sept? 2026, 07\.00\.00/);
 });
 
 test('sendTelegram requires token and chatId', async () => {
